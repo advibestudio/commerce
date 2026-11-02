@@ -134,6 +134,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({
           settings.appsScriptUrl,
           {
             action: 'upsert_order',
+            sendReceiptEmail: Boolean(email.trim() && email.includes('@')),
             order: fallbackOrder,
           }
         );
@@ -178,6 +179,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({
           settings.appsScriptUrl,
           {
             action: 'upsert_order',
+            sendReceiptEmail: Boolean(email.trim() && email.includes('@')),
             order: fallbackOrder,
           }
         );
@@ -511,15 +513,15 @@ export const OrderForm: React.FC<OrderFormProps> = ({
           />
         </div>
 
-        {/* Email (Optional) */}
+        {/* Email for Gmail Pre-Order Receipt */}
         <div>
           <label htmlFor="order-email" className="sr-only">
-            Email for order updates (optional)
+            Email for pre-order receipt &amp; 24–48hr delivery schedule
           </label>
           <input
             id="order-email"
             type="email"
-            placeholder="Email for order updates (optional)"
+            placeholder="Your email (to receive pre-order receipt & 24–48hr delivery notice)"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full h-12 px-3.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-sm sm:text-base focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15"

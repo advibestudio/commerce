@@ -293,18 +293,85 @@ export async function fetchOrdersFromGoogleAppsScriptDirect(
   }
 }
 
+export const META_PIXEL_ID = '1209947957634004';
+
+declare global {
+  interface Window {
+    fbq?: (...args: unknown[]) => void;
+  }
+}
+
+export function trackMetaPixelProductView(defaultPrice = 45500): void {
+  if (typeof window === 'undefined' || typeof window.fbq !== 'function') return;
+  try {
+    window.fbq('track', 'ViewContent', {
+      content_name: 'High Quality 5-Jet Mist Fan with Colour Changing LED Light',
+      content_category: 'Home & Cooling Appliances',
+      content_ids: ['shittu-mist-fan-5jet'],
+      content_type: 'product',
+      value: Number(defaultPrice) || 45500,
+      currency: 'NGN',
+    });
+  } catch {
+    // Ignore pixel blocker errors
+  }
+}
+
+export function trackMetaPixelPurchase(order: Order): void {
+  if (typeof window === 'undefined') return;
+  const dedupeKey = `shittustores_pixel_purchase_${order.id}`;
+  try {
+    if (sessionStorage.getItem(dedupeKey) === '1') {
+      return;
+    }
+  } catch {
+    // Ignore sessionStorage restrictions
+  }
+
+  if (typeof window.fbq === 'function') {
+    try {
+      const variantId =
+        order.productType === 'RECHARGEABLE'
+          ? 'shittu-mist-fan-rechargeable'
+          : 'shittu-mist-fan-non-rechargeable';
+      const variantName =
+        order.productType === 'RECHARGEABLE'
+          ? 'RECHARGEABLE'
+          : 'NON RECHARGEABLE';
+
+      window.fbq('track', 'Purchase', {
+        value: Number(order.totalAmount) || 45500,
+        currency: 'NGN',
+        content_name: `High Quality 5-Jet Mist Fan (${variantName})`,
+        content_type: 'product',
+        content_ids: [variantId],
+        num_items: Number(order.quantity) || 1,
+        order_id: order.id,
+      });
+
+      try {
+        sessionStorage.setItem(dedupeKey, '1');
+      } catch {
+        // Ignore
+      }
+    } catch {
+      // Ignore pixel blocker errors
+    }
+  }
+}
+
 export const GOOGLE_APPS_SCRIPT_TEMPLATE = `/**
- * SHITTUSTORES BY ADVIBE STUDIOS COMMERCE — GOOGLE SHEETS ORDER SYNC SCRIPT
- * (Supports both Instant Order Logging via doPost and Admin Mobile App Live Sync via doGet)
+ * SHITTUSTORES BY ADVIBE STUDIOS COMMERCE — GOOGLE SHEETS ORDER SYNC + GMAIL RECEIPT SCRIPT
+ * (Supports Instant Order Logging via doPost, Automated Customer Gmail Receipt, and Admin Live Sync via doGet)
  * 
  * Setup Instructions:
  * 1. Open your Google Sheet -> Click "Extensions" > "Apps Script"
  * 2. Delete any code in the editor and paste this entire script.
- * 3. Click "Deploy" (top right) > "New deployment"
+ * 3. Click "Deploy" (top right) > "Manage deployments" > Edit (pencil icon) or "New deployment"
  * 4. Select type: "Web app"
  * 5. Set "Execute as": "Me"
  * 6. Set "Who has access": "Anyone"
- * 7. Click "Deploy", copy the Web App URL, and paste it in your ShittuStores Admin Settings!
+ * 7. Click "Deploy", authorize Gmail & Sheet access, and paste the Web App URL in ShittuAdmin!
  */
 
 const HEADERS = [
@@ -358,6 +425,81 @@ function orderToRow(order) {
     order.adminNote || '',
     new Date().toLocaleString('en-NG')
   ];
+}
+
+function sendCustomerReceiptEmail(order) {
+  try {
+    const customerEmail = String(order.email || '').trim();
+    if (!customerEmail || customerEmail.indexOf('@') === -1) {
+      return false;
+    }
+
+    const variantLabel = order.productType === 'RECHARGEABLE' ? 'RECHARGEABLE' : 'NON RECHARGEABLE';
+    const qty = Number(order.quantity || 1);
+    const unitPriceFormatted = '₦' + Number(order.unitPrice || 45500).toLocaleString();
+    const totalFormatted = '₦' + Number(order.totalAmount || 45500).toLocaleString();
+    const subject = 'Pre-Order Confirmation Receipt (' + (order.id || 'SHITTU') + ') — ShittuStores';
+
+    const plainBody = [
+      'Hello ' + (order.customerName || 'Valued Customer') + ',',
+      '',
+      'Thank you for ordering from ShittuStores by Advibe Studios Commerce!',
+      'Your pre-order has been received and your doorstep delivery will be scheduled within 24–48 hours.',
+      '',
+      '--- PRE-ORDER CONFIRMATION RECEIPT ---',
+      'Order ID: ' + (order.id || ''),
+      'Product: High Quality 5-Jet Mist Fan with Colour Changing LED Light (' + variantLabel + ')',
+      'Quantity: ' + qty + ' (' + unitPriceFormatted + ' each)',
+      'Delivery Fee: FREE Doorstep Delivery (₦0)',
+      'Total Payable on Delivery: ' + totalFormatted + ' (Pay on Delivery via Cash or POS Transfer)',
+      'Delivery Address: ' + (order.address || '') + ', ' + (order.city || '') + ', ' + (order.state || ''),
+      'Phone Number: ' + (order.phone || ''),
+      '',
+      'WHAT HAPPENS NEXT:',
+      'Our dispatch courier team will call your phone number (' + (order.phone || '') + ') to schedule and complete your doorstep delivery within 24–48 hours.',
+      '',
+      'Thank you for choosing ShittuStores by Advibe Studios Commerce!'
+    ].join('\\n');
+
+    const htmlBody = '<div style="font-family: Arial, sans-serif; max-width: 580px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; color: #0f172a;">' +
+      '<div style="background: #0f172a; color: #ffffff; padding: 22px 24px;">' +
+        '<div style="font-size: 12px; color: #34d399; font-weight: bold; letter-spacing: 0.08em; text-transform: uppercase;">PRE-ORDER CONFIRMATION RECEIPT</div>' +
+        '<h2 style="margin: 6px 0 0; font-size: 20px;">Thank You, ' + (order.customerName || 'Valued Customer') + '!</h2>' +
+        '<p style="margin: 6px 0 0; font-size: 13px; color: #cbd5e1;">ShittuStores by Advibe Studios Commerce</p>' +
+      '</div>' +
+      '<div style="padding: 24px; background: #ffffff;">' +
+        '<div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 12px; padding: 14px 16px; margin-bottom: 20px;">' +
+          '<strong style="color: #065f46; font-size: 14px; display: block;">Delivery Scheduled Within 24–48 Hours</strong>' +
+          '<span style="color: #047857; font-size: 13px;">Your order is being prepared for dispatch to <b>' + (order.city || '') + ', ' + (order.state || '') + '</b>. Our courier will call <b>' + (order.phone || '') + '</b> before arrival.</span>' +
+        '</div>' +
+        '<table style="width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 18px;">' +
+          '<tr><td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; color: #64748b;">Order Reference</td><td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-weight: bold; text-align: right; color: #1d4ed8;">' + (order.id || '') + '</td></tr>' +
+          '<tr><td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; color: #64748b;">Product</td><td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-weight: bold; text-align: right;">High Quality 5-Jet Mist Fan (' + variantLabel + ')</td></tr>' +
+          '<tr><td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; color: #64748b;">Quantity</td><td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-weight: bold; text-align: right;">' + qty + ' × ' + unitPriceFormatted + '</td></tr>' +
+          '<tr><td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; color: #64748b;">Doorstep Delivery</td><td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-weight: bold; text-align: right; color: #059669;">FREE (₦0)</td></tr>' +
+          '<tr><td style="padding: 12px 0; font-weight: bold; font-size: 15px;">Total Payable on Delivery</td><td style="padding: 12px 0; font-weight: bold; font-size: 17px; text-align: right; color: #1d4ed8;">' + totalFormatted + '</td></tr>' +
+        '</table>' +
+        '<div style="background: #f8fafc; border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #334155;">' +
+          '<strong>Delivery Address:</strong> ' + (order.address || '') + ', ' + (order.city || '') + ', ' + (order.state || '') + '<br/>' +
+          '<strong>Payment Method:</strong> Pay on Delivery (Cash or POS Transfer upon doorstep inspection)' +
+        '</div>' +
+      '</div>' +
+      '<div style="background: #f8fafc; padding: 14px 24px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0;">' +
+        '© ' + new Date().getFullYear() + ' ShittuStores by Advibe Studios Commerce · Nationwide Pay on Delivery' +
+      '</div>' +
+    '</div>';
+
+    MailApp.sendEmail({
+      to: customerEmail,
+      subject: subject,
+      body: plainBody,
+      htmlBody: htmlBody,
+      name: 'ShittuStores by Advibe Studios Commerce'
+    });
+    return true;
+  } catch (err) {
+    return false;
+  }
 }
 
 function upsertOrder(sheet, order) {
@@ -442,8 +584,13 @@ function doPost(e) {
     const order = payload.order || payload;
     const result = upsertOrder(sheet, order);
 
+    let emailSent = false;
+    if (result === 'inserted' || payload.sendReceiptEmail === true) {
+      emailSent = sendCustomerReceiptEmail(order);
+    }
+
     return ContentService.createTextOutput(
-      JSON.stringify({ ok: true, result: result, orderId: order.id })
+      JSON.stringify({ ok: true, result: result, orderId: order.id, emailSent: emailSent })
     ).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(
@@ -452,4 +599,5 @@ function doPost(e) {
   }
 }
 `;
+
 

@@ -23,10 +23,12 @@ import {
   StoreSettings,
   fetchOrdersFromGoogleAppsScriptDirect,
   formatNaira,
+  trackMetaPixelProductView,
 } from './types';
 import { ImageCarousel } from './components/ImageCarousel';
 import { OrderForm } from './components/OrderForm';
 import { ProtectedVideoPlayer } from './components/ProtectedVideoPlayer';
+import { ThankYouPage } from './components/ThankYouPage';
 
 const AdminDashboard = lazy(() =>
   import('./components/AdminDashboard').then((m) => ({
@@ -135,6 +137,7 @@ export default function App() {
   const [routeMode, setRouteMode] = useState<'store' | 'admin' | 'admin-app'>(
     () => detectRouteMode()
   );
+  const [completedOrder, setCompletedOrder] = useState<Order | null>(null);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
   const [settings, setSettings] = useState<StoreSettings>(() => {
     const defaults: StoreSettings = {
@@ -259,7 +262,14 @@ export default function App() {
 
   useEffect(() => {
     const syncRoute = () => {
-      setRouteMode(detectRouteMode());
+      const nextMode = detectRouteMode();
+      setRouteMode(nextMode);
+      if (
+        nextMode === 'store' &&
+        !window.location.hash.toLowerCase().includes('thank-you')
+      ) {
+        setCompletedOrder(null);
+      }
     };
     window.addEventListener('popstate', syncRoute);
     window.addEventListener('hashchange', syncRoute);
@@ -268,6 +278,13 @@ export default function App() {
       window.removeEventListener('hashchange', syncRoute);
     };
   }, []);
+
+  // Track Meta Pixel ViewContent when visitor views the public product page
+  useEffect(() => {
+    if (routeMode === 'store' && !completedOrder) {
+      trackMetaPixelProductView(settings.rechargeablePrice);
+    }
+  }, [routeMode, completedOrder, settings.rechargeablePrice]);
 
   // Dynamically control SEO robots meta & Admin-Only PWA manifest link
   useEffect(() => {
@@ -321,6 +338,12 @@ export default function App() {
       }
       return next;
     });
+    setCompletedOrder(newOrder);
+    try {
+      window.history.pushState({}, '', '#thank-you');
+    } catch {
+      // Ignore history error
+    }
   };
 
   const handleUpdateSettings = async (
@@ -396,6 +419,28 @@ export default function App() {
           onOrdersUpdated={updateOrdersState}
         />
       </Suspense>
+    );
+  }
+
+  if (completedOrder) {
+    return (
+      <ThankYouPage
+        order={completedOrder}
+        settings={settings}
+        onReturnToStore={() => {
+          setCompletedOrder(null);
+          try {
+            window.history.pushState(
+              {},
+              '',
+              window.location.pathname + window.location.search
+            );
+          } catch {
+            // Ignore
+          }
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
     );
   }
 

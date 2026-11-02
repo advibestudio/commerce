@@ -1,6 +1,6 @@
 {
-  "summary": "Plan to redesign the Admin Web App UI/UX for mobile phones (touch-friendly order cards, 1-tap Call/WhatsApp actions, bottom navigation bar) and pre-configure + fix the Google Sheet & Apps Script connection so it never fails with \"Failed to fetch\".",
-  "updatedAt": "2026-11-02T13:50:27.091386871Z",
+  "summary": "Implementation plan for integrating Meta Pixel (PageView, ViewContent on the product page, and dynamic NGN Purchase tracking exclusively on a dedicated full-page Thank You screen), a prominent WhatsApp confirmation CTA, and automated Gmail pre-order confirmation receipts with 24–48hr delivery scheduling.",
+  "updatedAt": "2026-11-02T14:07:53.722738718Z",
   "requestFeedback": true,
   "userFacing": true
 }

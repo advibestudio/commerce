@@ -235,7 +235,8 @@ function saveDb(db: DatabaseSchema): void {
 
 async function pushOrderToAppsScript(
   appsScriptUrl: string,
-  order: OrderRecord
+  order: OrderRecord,
+  sendReceiptEmail = false
 ): Promise<{ ok: boolean; error?: string }> {
   const trimmedUrl = (appsScriptUrl || '').trim();
   if (!trimmedUrl) {
@@ -253,6 +254,7 @@ async function pushOrderToAppsScript(
       },
       body: JSON.stringify({
         action: 'upsert',
+        sendReceiptEmail,
         order,
       }),
       redirect: 'follow',
@@ -715,7 +717,8 @@ async function startServer() {
     if (db.settings.appsScriptUrl?.trim()) {
       const syncResult = await pushOrderToAppsScript(
         db.settings.appsScriptUrl,
-        newOrder
+        newOrder,
+        Boolean(newOrder.email && newOrder.email.includes('@'))
       );
       newOrder.sheetSynced = syncResult.ok;
       if (syncResult.ok) {
