@@ -87,8 +87,11 @@ const INITIAL_DATA: DatabaseSchema = {
     stockCount: 38,
     youtubeUrl: '',
     videos: DEFAULT_VIDEOS,
-    appsScriptUrl: process.env.GOOGLE_APPS_SCRIPT_URL || '',
-    googleSheetUrl: '',
+    appsScriptUrl:
+      process.env.GOOGLE_APPS_SCRIPT_URL ||
+      'https://script.google.com/macros/s/AKfycbyAFkq7GmB_RvDm8oWP4Ryu-46RQt8FCTlHVBNfsf7QKvImg-IhyYMgqxkAYw1yzo6R/exec',
+    googleSheetUrl:
+      'https://docs.google.com/spreadsheets/d/15cwE3DwlRZOm9NG8Cq-5jILCSgX53aq9df186HlypPs/edit?gid=0#gid=0',
     whatsappNumber: '2348030000000',
     adminPasscode: '1234',
   },
@@ -190,6 +193,12 @@ function loadDb(): DatabaseSchema {
     const mergedSettings = {
       ...INITIAL_DATA.settings,
       ...(parsed.settings || {}),
+      appsScriptUrl:
+        parsed.settings?.appsScriptUrl?.trim() ||
+        INITIAL_DATA.settings.appsScriptUrl,
+      googleSheetUrl:
+        parsed.settings?.googleSheetUrl?.trim() ||
+        INITIAL_DATA.settings.googleSheetUrl,
     };
     if (
       !Array.isArray(mergedSettings.videos) ||
@@ -240,7 +249,7 @@ async function pushOrderToAppsScript(
     const response = await fetch(trimmedUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'text/plain;charset=utf-8',
       },
       body: JSON.stringify({
         action: 'upsert',
@@ -252,6 +261,14 @@ async function pushOrderToAppsScript(
 
     clearTimeout(timeout);
 
+    if (response.status === 403 || response.status === 401) {
+      return {
+        ok: false,
+        error:
+          'Google Apps Script returned HTTP 403 (Access Denied). In Google Apps Script, click "Deploy" > "Manage deployments" > Edit (pencil icon) > set "Who has access" to "Anyone" > click "Deploy".',
+      };
+    }
+
     if (!response.ok) {
       return {
         ok: false,
@@ -260,6 +277,14 @@ async function pushOrderToAppsScript(
     }
 
     const text = await response.text();
+    if (text.includes('accounts.google.com') || text.includes('ServiceLogin')) {
+      return {
+        ok: false,
+        error:
+          'Google Apps Script requires "Who has access" to be set to "Anyone" (currently restricted to Google login).',
+      };
+    }
+
     try {
       const json = JSON.parse(text);
       if (json && json.ok === false) {
@@ -292,7 +317,7 @@ async function pushBatchToAppsScript(
     const response = await fetch(trimmedUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'text/plain;charset=utf-8',
       },
       body: JSON.stringify({
         action: 'batch_upsert',
@@ -303,6 +328,14 @@ async function pushBatchToAppsScript(
     });
 
     clearTimeout(timeout);
+
+    if (response.status === 403 || response.status === 401) {
+      return {
+        ok: false,
+        error:
+          'Google Apps Script returned HTTP 403 (Access Denied). In Google Apps Script, click "Deploy" > "Manage deployments" > Edit (pencil icon) > set "Who has access" to "Anyone" > click "Deploy".',
+      };
+    }
 
     if (!response.ok) {
       return {

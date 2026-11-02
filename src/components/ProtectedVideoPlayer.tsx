@@ -40,6 +40,7 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
+  const [hasActivatedVideo, setHasActivatedVideo] = useState<boolean>(false);
   const [fallbackMap, setFallbackMap] = useState<Record<string, string>>({});
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -47,13 +48,18 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
   const resolvedStreamUrl =
     fallbackMap[currentVideo.id] || currentVideo.streamUrl;
 
+  const posterImage =
+    activeIndex % 2 === 0
+      ? './assets/aistudio/2d00e22190f652d3f176e4ab6f8b7b61_91d885f9.jpeg'
+      : './assets/aistudio/710a65b7b528469c3d8ffb6d3c4c4e57_e783070b.jpeg';
+
   useEffect(() => {
     setIsPlaying(false);
     setProgress(0);
-    if (videoRef.current) {
+    if (hasActivatedVideo && videoRef.current) {
       videoRef.current.load();
     }
-  }, [activeIndex, resolvedStreamUrl]);
+  }, [activeIndex, resolvedStreamUrl, hasActivatedVideo]);
 
   const handleVideoError = () => {
     // If /api/videos/stream/vid-X fails (e.g. on static GitHub Pages), seamlessly switch to cached local asset
@@ -72,6 +78,11 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
   };
 
   const togglePlay = () => {
+    if (!hasActivatedVideo) {
+      setHasActivatedVideo(true);
+      setIsPlaying(true);
+      return;
+    }
     const vid = videoRef.current;
     if (!vid) return;
     if (vid.paused) {
@@ -167,7 +178,16 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
           onClick={togglePlay}
           onContextMenu={(e) => e.preventDefault()}
         >
-          {currentVideo.embedType === 'youtube' ? (
+          {!hasActivatedVideo ? (
+            <img
+              src={posterImage}
+              alt={currentVideo.title}
+              loading="lazy"
+              decoding="async"
+              referrerPolicy="no-referrer"
+              className="w-full h-full object-cover opacity-80 pointer-events-none"
+            />
+          ) : currentVideo.embedType === 'youtube' ? (
             <div className="relative w-full h-full">
               <iframe
                 src={resolvedStreamUrl}
@@ -184,6 +204,8 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
             <video
               ref={videoRef}
               src={resolvedStreamUrl}
+              poster={posterImage}
+              autoPlay
               playsInline
               loop
               preload="metadata"

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import {
   CheckCircle2,
   ChevronDown,
@@ -15,9 +15,10 @@ import {
   Star,
   Truck,
   Zap,
-  Share2,
 } from 'lucide-react';
 import {
+  DEFAULT_APPS_SCRIPT_URL,
+  DEFAULT_GOOGLE_SHEET_URL,
   Order,
   StoreSettings,
   fetchOrdersFromGoogleAppsScriptDirect,
@@ -25,10 +26,15 @@ import {
 } from './types';
 import { ImageCarousel } from './components/ImageCarousel';
 import { OrderForm } from './components/OrderForm';
-import { AdminDashboard } from './components/AdminDashboard';
 import { ProtectedVideoPlayer } from './components/ProtectedVideoPlayer';
 
-const SETTINGS_STORAGE_KEY = 'shittustores_settings_v1';
+const AdminDashboard = lazy(() =>
+  import('./components/AdminDashboard').then((m) => ({
+    default: m.AdminDashboard,
+  }))
+);
+
+const SETTINGS_STORAGE_KEY = 'shittustores_settings_v2';
 const ORDERS_STORAGE_KEY = 'shittustores_orders_v1';
 
 const KEY_ADVANTAGES = [
@@ -137,14 +143,21 @@ export default function App() {
       originalPrice: 58000,
       stockCount: 38,
       youtubeUrl: '',
-      appsScriptUrl: '',
-      googleSheetUrl: '',
+      appsScriptUrl: DEFAULT_APPS_SCRIPT_URL,
+      googleSheetUrl: DEFAULT_GOOGLE_SHEET_URL,
       whatsappNumber: '2348030000000',
     };
     try {
       const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
       if (saved) {
-        return { ...defaults, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        return {
+          ...defaults,
+          ...parsed,
+          appsScriptUrl: parsed.appsScriptUrl?.trim() || DEFAULT_APPS_SCRIPT_URL,
+          googleSheetUrl:
+            parsed.googleSheetUrl?.trim() || DEFAULT_GOOGLE_SHEET_URL,
+        };
       }
     } catch {
       // Ignore storage error
@@ -178,13 +191,15 @@ export default function App() {
   }, []);
 
   const fetchStoreData = useCallback(async () => {
+    const isAdminView = routeMode === 'admin' || routeMode === 'admin-app';
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+
     try {
-      const [settingsRes, ordersRes] = await Promise.all([
-        fetch('/api/settings'),
-        fetch('/api/orders'),
-      ]);
+      const settingsRes = await fetch('/api/settings', {
+        signal: controller.signal,
+      });
       const sType = settingsRes.headers.get('content-type') || '';
-      const oType = ordersRes.headers.get('content-type') || '';
 
       if (settingsRes.ok && sType.includes('application/json')) {
         const sData = await settingsRes.json();
@@ -199,32 +214,44 @@ export default function App() {
         });
       }
 
-      if (ordersRes.ok && oType.includes('application/json')) {
-        const oData = await ordersRes.json();
-        if (Array.isArray(oData.orders)) {
-          updateOrdersState(oData.orders);
-          return;
+      // Only fetch all orders when inside /admin or /admin-app to save bandwidth for public shoppers
+      if (isAdminView) {
+        const ordersRes = await fetch('/api/orders', {
+          signal: controller.signal,
+        });
+        const oType = ordersRes.headers.get('content-type') || '';
+        if (ordersRes.ok && oType.includes('application/json')) {
+          const oData = await ordersRes.json();
+          if (Array.isArray(oData.orders)) {
+            updateOrdersState(oData.orders);
+            clearTimeout(timeoutId);
+            return;
+          }
         }
       }
     } catch {
-      // Running on static host (e.g. GitHub Pages)
+      // Running on static host (e.g. GitHub Pages) or offline/weak network
+    } finally {
+      clearTimeout(timeoutId);
     }
 
-    // If running on static GitHub Pages and Google Sheet Apps Script URL is configured, pull live orders from Sheet
-    try {
-      const savedSettingsRaw = localStorage.getItem(SETTINGS_STORAGE_KEY);
-      const savedSettings = savedSettingsRaw ? JSON.parse(savedSettingsRaw) : null;
-      const scriptUrl = savedSettings?.appsScriptUrl || settings.appsScriptUrl;
-      if (scriptUrl) {
-        const sheetOrders = await fetchOrdersFromGoogleAppsScriptDirect(scriptUrl);
-        if (sheetOrders && sheetOrders.length > 0) {
-          updateOrdersState(sheetOrders);
+    // If in Admin view on static GitHub Pages and Google Sheet Apps Script URL is configured, pull live orders from Sheet
+    if (isAdminView) {
+      try {
+        const savedSettingsRaw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+        const savedSettings = savedSettingsRaw ? JSON.parse(savedSettingsRaw) : null;
+        const scriptUrl = savedSettings?.appsScriptUrl || settings.appsScriptUrl;
+        if (scriptUrl) {
+          const sheetOrders = await fetchOrdersFromGoogleAppsScriptDirect(scriptUrl);
+          if (sheetOrders && sheetOrders.length > 0) {
+            updateOrdersState(sheetOrders);
+          }
         }
+      } catch {
+        // Keep localStorage orders
       }
-    } catch {
-      // Keep localStorage orders
     }
-  }, [settings.appsScriptUrl, updateOrdersState]);
+  }, [routeMode, settings.appsScriptUrl, updateOrdersState]);
 
   useEffect(() => {
     fetchStoreData();
@@ -346,21 +373,29 @@ export default function App() {
 
   if (routeMode === 'admin' || routeMode === 'admin-app') {
     return (
-      <AdminDashboard
-        orders={orders}
-        settings={settings}
-        isAppInstallerRoute={routeMode === 'admin-app'}
-        onBackToStore={() => {
-          const basePath = window.location.pathname
-            .replace(/\/admin-app\/?$/i, '/')
-            .replace(/\/admin\/?$/i, '/');
-          window.history.pushState({}, '', basePath || '/');
-          setRouteMode('store');
-        }}
-        onRefreshOrders={fetchStoreData}
-        onUpdateSettings={handleUpdateSettings}
-        onOrdersUpdated={updateOrdersState}
-      />
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 text-white text-sm font-display font-bold">
+            Loading ShittuAdmin Portal...
+          </div>
+        }
+      >
+        <AdminDashboard
+          orders={orders}
+          settings={settings}
+          isAppInstallerRoute={routeMode === 'admin-app'}
+          onBackToStore={() => {
+            const basePath = window.location.pathname
+              .replace(/\/admin-app\/?$/i, '/')
+              .replace(/\/admin\/?$/i, '/');
+            window.history.pushState({}, '', basePath || '/');
+            setRouteMode('store');
+          }}
+          onRefreshOrders={fetchStoreData}
+          onUpdateSettings={handleUpdateSettings}
+          onOrdersUpdated={updateOrdersState}
+        />
+      </Suspense>
     );
   }
 
@@ -555,6 +590,8 @@ export default function App() {
               <img
                 src="./assets/aistudio/2d00e22190f652d3f176e4ab6f8b7b61_91d885f9.jpeg"
                 alt="Spray humidification cooling fan 600ml 5 sprays"
+                loading="lazy"
+                decoding="async"
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-cover"
               />
@@ -563,6 +600,8 @@ export default function App() {
               <img
                 src="./assets/aistudio/710a65b7b528469c3d8ffb6d3c4c4e57_e783070b.jpeg"
                 alt="7-Color LED Light Options and 1H/2H/3H Timer"
+                loading="lazy"
+                decoding="async"
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-cover"
               />

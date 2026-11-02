@@ -207,31 +207,64 @@ export function buildCustomerWhatsAppLink(order: Order): string {
   return `https://wa.me/${intlPhone}?text=${encodeURIComponent(message)}`;
 }
 
+export const DEFAULT_APPS_SCRIPT_URL =
+  'https://script.google.com/macros/s/AKfycbyAFkq7GmB_RvDm8oWP4Ryu-46RQt8FCTlHVBNfsf7QKvImg-IhyYMgqxkAYw1yzo6R/exec';
+
+export const DEFAULT_GOOGLE_SHEET_URL =
+  'https://docs.google.com/spreadsheets/d/15cwE3DwlRZOm9NG8Cq-5jILCSgX53aq9df186HlypPs/edit?gid=0#gid=0';
+
 export async function postToGoogleAppsScriptDirect(
   appsScriptUrl: string,
   payload: Record<string, unknown>
 ): Promise<{ ok: boolean; error?: string }> {
-  const trimmed = (appsScriptUrl || '').trim();
+  const trimmed = (appsScriptUrl || DEFAULT_APPS_SCRIPT_URL).trim();
   if (!trimmed) {
     return { ok: false, error: 'No Google Apps Script URL configured.' };
   }
+  const bodyStr = JSON.stringify(payload);
+
+  // First try standard CORS POST (works when Apps Script returns 200 JSON redirect with CORS headers)
   try {
     const res = await fetch(trimmed, {
       method: 'POST',
       headers: {
-        // Using text/plain avoids CORS preflight rejection on Google Apps Script Web Apps
         'Content-Type': 'text/plain;charset=utf-8',
       },
-      body: JSON.stringify(payload),
+      body: bodyStr,
+      redirect: 'follow',
     });
-    if (!res.ok) {
-      return { ok: false, error: `Webhook returned HTTP ${res.status}` };
+    if (res.status === 403 || res.status === 401) {
+      return {
+        ok: false,
+        error:
+          'Google Apps Script returned HTTP 403. In Apps Script, click Deploy > Manage deployments > Edit > set "Who has access" to "Anyone".',
+      };
     }
+    if (res.ok) {
+      return { ok: true };
+    }
+  } catch {
+    // Browser blocked cross-origin 302 redirect on POST — fall back to opaque no-cors POST below
+  }
+
+  // Fallback: mode 'no-cors' sends the exact POST body to Google Apps Script doPost(e) without browser CORS redirect rejection
+  try {
+    await fetch(trimmed, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8',
+      },
+      body: bodyStr,
+    });
     return { ok: true };
   } catch (err: unknown) {
     return {
       ok: false,
-      error: err instanceof Error ? err.message : 'Failed to reach Apps Script URL',
+      error:
+        err instanceof Error
+          ? err.message
+          : 'Could not reach Google Apps Script URL. Check your internet connection.',
     };
   }
 }
@@ -239,12 +272,16 @@ export async function postToGoogleAppsScriptDirect(
 export async function fetchOrdersFromGoogleAppsScriptDirect(
   appsScriptUrl: string
 ): Promise<Order[] | null> {
-  const trimmed = (appsScriptUrl || '').trim();
+  const trimmed = (appsScriptUrl || DEFAULT_APPS_SCRIPT_URL).trim();
   if (!trimmed) return null;
   try {
-    const res = await fetch(`${trimmed}${trimmed.includes('?') ? '&' : '?'}action=list`, {
-      method: 'GET',
-    });
+    const res = await fetch(
+      `${trimmed}${trimmed.includes('?') ? '&' : '?'}action=list`,
+      {
+        method: 'GET',
+        redirect: 'follow',
+      }
+    );
     if (!res.ok) return null;
     const data = await res.json();
     if (data && Array.isArray(data.orders)) {

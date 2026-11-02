@@ -54,13 +54,29 @@
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
     <link rel="icon" type="image/svg+xml" href="./icon.svg" />
 
-    <!-- Fonts -->
+    <!-- Preload Hero Image #1 for Instant Largest Contentful Paint (LCP) on Slow Networks -->
+    <link
+      rel="preload"
+      as="image"
+      href="./assets/aistudio/2d00e22190f652d3f176e4ab6f8b7b61_91d885f9.jpeg"
+      fetchpriority="high"
+    />
+
+    <!-- Non-Render-Blocking Fonts (Renders immediately with system fonts on 2G/3G, swaps smoothly) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
     />
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
 
     <!-- Schema.org Structured Data (Product + FAQPage) for Google Search Visibility -->
     <script type="application/ld+json">

@@ -51,9 +51,24 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,jpeg,jpg}'],
-          maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+          // Only precache the tiny app shell (JS, CSS, HTML, SVG) so slow networks never stall downloading all images in the background
+          globPatterns: ['**/*.{js,css,html,ico,svg}'],
+          maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
           runtimeCaching: [
+            {
+              urlPattern: /\.(?:png|jpg|jpeg|webp|svg|gif)$/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'product-images-cache',
+                expiration: {
+                  maxEntries: 30,
+                  maxAgeSeconds: 60 * 60 * 24 * 60, // 60 days
+                },
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+              },
+            },
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
               handler: 'CacheFirst',

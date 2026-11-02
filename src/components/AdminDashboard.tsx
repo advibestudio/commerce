@@ -19,9 +19,12 @@ import {
   Package,
   MapPin,
   Smartphone,
+  Phone,
 } from 'lucide-react';
 import {
   AdminVideoItem,
+  DEFAULT_APPS_SCRIPT_URL,
+  DEFAULT_GOOGLE_SHEET_URL,
   GOOGLE_APPS_SCRIPT_TEMPLATE,
   Order,
   OrderStatus,
@@ -101,10 +104,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     settings.youtubeUrl || ''
   );
   const [appsScriptUrl, setAppsScriptUrl] = useState<string>(
-    settings.appsScriptUrl || ''
+    settings.appsScriptUrl || DEFAULT_APPS_SCRIPT_URL
   );
   const [googleSheetUrl, setGoogleSheetUrl] = useState<string>(
-    settings.googleSheetUrl || ''
+    settings.googleSheetUrl || DEFAULT_GOOGLE_SHEET_URL
   );
   const [whatsappNumber, setWhatsappNumber] = useState<string>(
     settings.whatsappNumber || ''
@@ -853,21 +856,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     );
   }
 
+  const activeSheetLink =
+    (googleSheetUrl || settings.googleSheetUrl || DEFAULT_GOOGLE_SHEET_URL).trim();
+  const activeAppsScriptLink =
+    (appsScriptUrl || settings.appsScriptUrl || DEFAULT_APPS_SCRIPT_URL).trim();
+
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 pb-16">
-      {/* Top Bar Contract */}
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 pb-24 md:pb-16">
+      {/* Mobile & Desktop Responsive Top Bar */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-8">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-6">
           <button
             type="button"
             onClick={onBackToStore}
-            className="text-base sm:text-lg font-display font-extrabold tracking-tight text-slate-900 whitespace-nowrap shrink-0 flex items-center gap-2 cursor-pointer"
+            className="text-sm sm:text-lg font-display font-extrabold tracking-tight text-slate-900 whitespace-nowrap shrink-0 flex items-center gap-1.5 sm:gap-2 cursor-pointer"
           >
-            <ArrowLeft className="w-4 h-4 text-blue-700" />
-            <span>ShittuStores Operations</span>
+            <ArrowLeft className="w-4 h-4 text-blue-700 shrink-0" />
+            <span className="truncate">ShittuAdmin</span>
+            <span className="hidden sm:inline text-slate-400 font-normal text-sm">
+              · Operations
+            </span>
           </button>
 
-          <nav className="flex items-center gap-4 sm:gap-6 text-sm font-medium text-slate-600">
+          {/* Desktop Navigation Tabs (Hidden on mobile where Bottom Nav is used) */}
+          <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
             <button
               type="button"
               onClick={() => setActiveTab('orders')}
@@ -903,112 +915,132 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </button>
           </nav>
 
-          <div className="flex items-center gap-2.5 shrink-0">
+          {/* Right Quick Actions (Mobile-optimized) */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            {activeSheetLink && (
+              <a
+                href={activeSheetLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Open Google Sheet"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100 text-xs font-display font-bold transition-colors"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span className="hidden xs:inline sm:inline">Sheet</span>
+              </a>
+            )}
             <PWAInstallButton variant="compact" />
             <button
               type="button"
               onClick={onBackToStore}
-              className="px-3.5 py-2 text-xs font-display font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className="px-2.5 py-1.5 sm:px-3.5 sm:py-2 text-xs font-display font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
-              View Live Sales Page
+              <span className="sm:hidden">Store</span>
+              <span className="hidden sm:inline">View Live Sales Page</span>
             </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 pt-4 sm:pt-6 space-y-4 sm:space-y-6">
         {/* Private Admin Mobile App Installer Card (Highlighted on /admin-app or Settings tab) */}
         {(isAppInstallerRoute || activeTab === 'settings') && (
           <PWAInstallButton variant="card" />
         )}
-        {/* KPI Summary Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-2xl border border-slate-200 p-5">
-            <span className="text-xs font-medium text-slate-500">
-              Total Gross Order Value
+
+        {/* KPI Summary Row — Compact 2x2 Grid on Mobile, 4 Columns on Desktop */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+          <div className="bg-white rounded-2xl border border-slate-200 p-3.5 sm:p-5">
+            <span className="text-[11px] sm:text-xs font-medium text-slate-500 block">
+              Gross Order Value
             </span>
-            <p className="text-2xl font-mono-num font-extrabold text-slate-900 mt-1">
+            <p className="text-base sm:text-2xl font-mono-num font-extrabold text-slate-900 mt-0.5 sm:mt-1 truncate">
               {formatNaira(stats.totalRevenue)}
             </p>
-            <p className="text-xs text-slate-500 mt-1">
-              Across <span className="font-mono-num font-semibold text-slate-700">{stats.totalOrders}</span> total orders
+            <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 sm:mt-1">
+              <span className="font-mono-num font-semibold text-slate-700">
+                {stats.totalOrders}
+              </span>{' '}
+              total orders
             </p>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200 p-5">
-            <span className="text-xs font-medium text-slate-500">
-              Delivered Cash Collected
+          <div className="bg-white rounded-2xl border border-slate-200 p-3.5 sm:p-5">
+            <span className="text-[11px] sm:text-xs font-medium text-slate-500 block">
+              Delivered Cash
             </span>
-            <p className="text-2xl font-mono-num font-extrabold text-emerald-700 mt-1">
+            <p className="text-base sm:text-2xl font-mono-num font-extrabold text-emerald-700 mt-0.5 sm:mt-1 truncate">
               {formatNaira(stats.deliveredRevenue)}
             </p>
-            <p className="text-xs text-slate-500 mt-1">
-              Active pipeline:{' '}
+            <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 sm:mt-1 truncate">
+              Pipeline:{' '}
               <span className="font-mono-num font-semibold text-blue-700">
                 {formatNaira(stats.pipelineRevenue)}
               </span>
             </p>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200 p-5">
-            <span className="text-xs font-medium text-slate-500">
-              Variant Breakdown
+          <div className="bg-white rounded-2xl border border-slate-200 p-3.5 sm:p-5">
+            <span className="text-[11px] sm:text-xs font-medium text-slate-500 block">
+              Variant Split
             </span>
-            <div className="mt-1.5 space-y-1 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-600">Rechargeable (₦45,500):</span>
-                <span className="font-mono-num font-bold text-slate-900">
-                  {stats.rechargeableCount} orders
+            <div className="mt-1 sm:mt-1.5 space-y-1 text-[11px] sm:text-xs">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-slate-600 truncate">Rechargeable:</span>
+                <span className="font-mono-num font-bold text-slate-900 shrink-0">
+                  {stats.rechargeableCount}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-600">Non-Rechargeable (₦40,500):</span>
-                <span className="font-mono-num font-bold text-slate-900">
-                  {stats.nonRechargeableCount} orders
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-slate-600 truncate">Non-Rech:</span>
+                <span className="font-mono-num font-bold text-slate-900 shrink-0">
+                  {stats.nonRechargeableCount}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">
-                Google Sheet Orders
+          <div className="bg-white rounded-2xl border border-slate-200 p-3.5 sm:p-5 flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[11px] sm:text-xs font-medium text-slate-500 truncate">
+                Google Sheet
               </span>
-              <span className="text-xs font-mono-num font-semibold text-slate-700">
-                {stats.syncedCount}/{stats.totalOrders} synced
+              <span className="text-[11px] sm:text-xs font-mono-num font-semibold text-emerald-700 shrink-0">
+                {stats.syncedCount}/{stats.totalOrders}
               </span>
             </div>
             <div className="mt-2 flex flex-col gap-1.5">
-              {settings.googleSheetUrl && (
+              {activeSheetLink && (
                 <a
-                  href={settings.googleSheetUrl}
+                  href={activeSheetLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full py-1.5 px-3 rounded-xl bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 text-xs font-display font-bold flex items-center justify-center gap-1.5 transition-colors"
+                  className="w-full py-1.5 px-2.5 rounded-xl bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 text-[11px] sm:text-xs font-display font-bold flex items-center justify-center gap-1 transition-colors"
                 >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  Open My Google Sheet
+                  <ExternalLink className="w-3 h-3 shrink-0" />
+                  <span className="truncate">Open Sheet</span>
                 </a>
               )}
-              {settings.appsScriptUrl ? (
+              {activeAppsScriptLink ? (
                 <button
                   type="button"
                   onClick={handleSyncAllOrders}
                   disabled={isSyncingAll}
-                  className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-xs font-display font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  className="w-full py-1.5 sm:py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-[11px] sm:text-xs font-display font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer"
                 >
-                  <FileSpreadsheet className="w-3.5 h-3.5" />
-                  {isSyncingAll ? 'Syncing Sheet...' : 'Sync All to Google Sheet'}
+                  <FileSpreadsheet className="w-3 h-3 shrink-0" />
+                  <span className="truncate">
+                    {isSyncingAll ? 'Syncing...' : 'Sync Sheet'}
+                  </span>
                 </button>
               ) : (
                 <button
                   type="button"
                   onClick={() => setActiveTab('settings')}
-                  className="w-full py-2 px-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-800 hover:bg-amber-100 text-xs font-display font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  className="w-full py-1.5 px-2.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-800 hover:bg-amber-100 text-[11px] sm:text-xs font-display font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer"
                 >
-                  <Settings className="w-3.5 h-3.5" />
-                  Connect Google Sheet URL
+                  <Settings className="w-3 h-3 shrink-0" />
+                  <span className="truncate">Setup Sheet</span>
                 </button>
               )}
             </div>
@@ -1018,24 +1050,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* Status Feedback Toast Banner */}
         {webhookTestStatus && (
           <div
-            className={`p-4 rounded-2xl border flex items-center justify-between text-sm ${
+            className={`p-3.5 sm:p-4 rounded-2xl border flex items-start sm:items-center justify-between gap-3 text-xs sm:text-sm ${
               webhookTestStatus.type === 'success'
                 ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                 : 'bg-amber-50 border-amber-200 text-amber-800'
             }`}
           >
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-start sm:items-center gap-2.5">
               {webhookTestStatus.type === 'success' ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5 sm:mt-0" />
               ) : (
-                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
               )}
-              <span>{webhookTestStatus.message}</span>
+              <span className="leading-snug">{webhookTestStatus.message}</span>
             </div>
             <button
               type="button"
               onClick={() => setWebhookTestStatus(null)}
-              className="text-xs font-semibold underline ml-4 cursor-pointer"
+              className="text-xs font-semibold underline shrink-0 cursor-pointer"
             >
               Dismiss
             </button>
@@ -1046,14 +1078,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {activeTab === 'orders' && (
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             {/* Toolbar: Search, Status Segmented Filter, State Dropdown, CSV Export */}
-            <div className="p-4 sm:p-5 border-b border-slate-200 space-y-4">
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            <div className="p-3.5 sm:p-5 border-b border-slate-200 space-y-3 sm:space-y-4">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 sm:gap-3">
                 {/* Search Input */}
                 <div className="relative flex-1 max-w-md">
                   <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="Search Order ID, name, phone, city or address..."
+                    placeholder="Search Order ID, name, phone, city..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full h-10 pl-9 pr-4 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-blue-600"
@@ -1061,12 +1093,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
 
                 {/* State Filter + Actions */}
-                <div className="flex flex-wrap items-center gap-2.5">
+                <div className="flex items-center gap-2 overflow-x-auto pb-0.5 sm:pb-0">
                   <select
                     value={stateFilter}
                     onChange={(e) => setStateFilter(e.target.value)}
                     aria-label="Filter by state"
-                    className="h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-700 focus:outline-none focus:border-blue-600"
+                    className="h-9 sm:h-10 px-2.5 sm:px-3 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-700 focus:outline-none focus:border-blue-600 shrink-0"
                   >
                     <option value="All">All States ({orders.length})</option>
                     {uniqueStatesInOrders.map((st) => (
@@ -1079,19 +1111,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <button
                     type="button"
                     onClick={onRefreshOrders}
-                    className="h-10 px-3.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="h-9 sm:h-10 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors shrink-0 cursor-pointer"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
-                    Refresh
+                    <span>Refresh</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={handleExportCsv}
-                    className="h-10 px-3.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="h-9 sm:h-10 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors shrink-0 cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    Export CSV
+                    <span>CSV</span>
                   </button>
                 </div>
               </div>
@@ -1122,9 +1154,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
 
-            {/* Orders Table */}
+            {/* Empty State */}
             {filteredOrders.length === 0 ? (
-              <div className="p-12 text-center">
+              <div className="p-10 sm:p-12 text-center">
                 <Package className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                 <p className="text-base font-display font-bold text-slate-800">
                   No matching orders found
@@ -1135,34 +1167,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-display font-bold uppercase tracking-wider text-slate-500">
-                      <th className="py-3 px-4">Order & Date</th>
-                      <th className="py-3 px-4">Customer & Contact</th>
-                      <th className="py-3 px-4">Delivery Destination</th>
-                      <th className="py-3 px-4">Product & Qty</th>
-                      <th className="py-3 px-4 text-right">Total (POD)</th>
-                      <th className="py-3 px-4">Pipeline Status</th>
-                      <th className="py-3 px-4">Sheet Sync</th>
-                      <th className="py-3 px-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 text-sm">
-                    {filteredOrders.map((order) => {
-                      const waLink = buildCustomerWhatsAppLink(order);
-                      return (
-                        <tr
-                          key={order.id}
-                          className="hover:bg-slate-50/80 transition-colors align-top"
-                        >
-                          {/* Order ID & Date */}
-                          <td className="py-3.5 px-4 whitespace-nowrap">
-                            <span className="font-mono-num font-bold text-blue-700 block">
-                              {order.id}
-                            </span>
-                            <span className="text-xs text-slate-500 font-mono-num">
+              <>
+                {/* MOBILE VIEW (< 768px): Touch-Friendly Stacked Order Cards */}
+                <div className="md:hidden divide-y divide-slate-200">
+                  {filteredOrders.map((order) => {
+                    const waLink = buildCustomerWhatsAppLink(order);
+                    return (
+                      <div key={order.id} className="p-4 space-y-3">
+                        {/* Card Top Row: ID, Timestamp, Total Price */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono-num font-extrabold text-sm text-blue-700">
+                                {order.id}
+                              </span>
+                              <span
+                                className={`text-[10px] font-mono-num px-1.5 py-0.5 rounded font-semibold ${
+                                  order.sheetSynced
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : 'bg-slate-100 text-slate-600'
+                                }`}
+                              >
+                                {order.sheetSynced ? 'Sheet Synced' : 'Local'}
+                              </span>
+                            </div>
+                            <span className="text-[11px] text-slate-500 font-mono-num block mt-0.5">
                               {new Date(order.createdAt).toLocaleDateString(
                                 'en-NG',
                                 {
@@ -1173,170 +1202,350 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 }
                               )}
                             </span>
-                          </td>
+                          </div>
 
-                          {/* Customer & Phone */}
-                          <td className="py-3.5 px-4">
-                            <p className="font-semibold text-slate-900">
+                          <div className="text-right">
+                            <span className="font-mono-num font-extrabold text-base text-slate-900 block">
+                              {formatNaira(order.totalAmount)}
+                            </span>
+                            <span className="text-[11px] font-display font-bold text-slate-600">
+                              {order.quantity}×{' '}
+                              {order.productType === 'RECHARGEABLE'
+                                ? 'RECHARGEABLE'
+                                : 'NON-RECH'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Customer & Address Box */}
+                        <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3 space-y-1.5 text-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-display font-bold text-slate-900 text-sm">
                               {order.customerName}
-                            </p>
-                            <p className="font-mono-num text-xs text-slate-600 mt-0.5">
+                            </span>
+                            <span className="font-mono-num font-semibold text-slate-700">
                               {order.phone}
+                            </span>
+                          </div>
+                          <p className="font-semibold text-blue-800">
+                            {order.city} · {order.state}
+                          </p>
+                          <p className="text-slate-600 leading-snug">
+                            {order.address}
+                          </p>
+                          {order.orderNote && (
+                            <p className="text-amber-700 pt-1 border-t border-slate-200/70">
+                              Customer Note: {order.orderNote}
                             </p>
-                            {order.email && (
-                              <p className="text-xs text-slate-400 truncate max-w-[180px]">
-                                {order.email}
-                              </p>
-                            )}
-                          </td>
+                          )}
+                          {order.adminNote && (
+                            <p className="text-blue-700 font-medium pt-1 border-t border-slate-200/70">
+                              Dispatch Note: {order.adminNote}
+                            </p>
+                          )}
+                        </div>
 
-                          {/* Delivery Address & Notes */}
-                          <td className="py-3.5 px-4 max-w-xs">
-                            <p className="font-semibold text-slate-800 text-xs">
-                              {order.city} · {order.state}
-                            </p>
-                            <p className="text-xs text-slate-600 mt-0.5 leading-snug">
-                              {order.address}
-                            </p>
-                            {order.orderNote && (
-                              <p className="text-xs text-amber-700 mt-1">
-                                Note: {order.orderNote}
-                              </p>
-                            )}
-                            {order.adminNote && (
-                              <p className="text-xs text-blue-700 mt-1 font-medium">
-                                Dispatch: {order.adminNote}
-                              </p>
-                            )}
+                        {/* Status Selector + Sync Row */}
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={order.status}
+                            disabled={updatingOrderId === order.id}
+                            onChange={(e) =>
+                              handleStatusChange(
+                                order.id,
+                                e.target.value as OrderStatus
+                              )
+                            }
+                            aria-label={`Order status for ${order.id}`}
+                            className={`flex-1 h-10 px-3 rounded-xl border text-xs font-display font-bold focus:outline-none ${
+                              order.status === 'Delivered'
+                                ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                                : order.status === 'Dispatched'
+                                ? 'bg-blue-50 border-blue-300 text-blue-800'
+                                : order.status === 'Confirmed'
+                                ? 'bg-indigo-50 border-indigo-300 text-indigo-800'
+                                : order.status === 'Cancelled'
+                                ? 'bg-red-50 border-red-300 text-red-800'
+                                : 'bg-amber-50 border-amber-300 text-amber-800'
+                            }`}
+                          >
+                            {ORDER_STATUSES.map((st) => (
+                              <option key={st} value={st}>
+                                Status: {st}
+                              </option>
+                            ))}
+                          </select>
+
+                          <button
+                            type="button"
+                            onClick={() => handleSyncSingleOrder(order.id)}
+                            disabled={syncingOrderId === order.id}
+                            className="h-10 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-display font-semibold text-blue-700 inline-flex items-center gap-1.5 shrink-0 cursor-pointer"
+                          >
+                            <RefreshCw
+                              className={`w-3.5 h-3.5 ${
+                                syncingOrderId === order.id
+                                  ? 'animate-spin'
+                                  : ''
+                              }`}
+                            />
+                            <span>Sync</span>
+                          </button>
+                        </div>
+
+                        {/* 1-Tap Mobile Action Buttons: Call, WhatsApp, Note, Delete */}
+                        <div className="grid grid-cols-4 gap-2 pt-0.5">
+                          <a
+                            href={`tel:${order.phone}`}
+                            className="col-span-1 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-display font-bold flex items-center justify-center gap-1 transition-colors"
+                          >
+                            <Phone className="w-3.5 h-3.5 text-blue-700" />
+                            <span>Call</span>
+                          </a>
+
+                          <a
+                            href={waLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="col-span-2 h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-display font-bold flex items-center justify-center gap-1.5 transition-colors"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            <span>WhatsApp</span>
+                          </a>
+
+                          <div className="col-span-1 flex items-center justify-end gap-1">
                             <button
                               type="button"
                               onClick={() => {
                                 setEditingNoteOrder(order);
                                 setNoteDraft(order.adminNote || '');
                               }}
-                              className="text-[11px] text-slate-400 hover:text-blue-700 underline mt-1 cursor-pointer"
+                              className="h-9 flex-1 rounded-xl border border-slate-200 text-[11px] font-semibold text-slate-600 hover:bg-slate-100 flex items-center justify-center cursor-pointer"
+                              title="Add/Edit Dispatch Note"
                             >
-                              {order.adminNote
-                                ? 'Edit dispatch note'
-                                : '+ Add dispatch note'}
+                              Note
                             </button>
-                          </td>
-
-                          {/* Variant & Qty */}
-                          <td className="py-3.5 px-4 whitespace-nowrap">
-                            <span className="text-xs font-display font-bold text-slate-800 block">
-                              {order.productType === 'RECHARGEABLE'
-                                ? 'RECHARGEABLE'
-                                : 'NON RECHARGEABLE'}
-                            </span>
-                            <span className="text-xs text-slate-500 font-mono-num">
-                              Qty: {order.quantity} ×{' '}
-                              {formatNaira(order.unitPrice)}
-                            </span>
-                          </td>
-
-                          {/* Total Amount */}
-                          <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                            <span className="font-mono-num font-extrabold text-slate-900">
-                              {formatNaira(order.totalAmount)}
-                            </span>
-                            <span className="block text-[11px] text-emerald-700">
-                              Pay on Delivery
-                            </span>
-                          </td>
-
-                          {/* Pipeline Status Selector */}
-                          <td className="py-3.5 px-4 whitespace-nowrap">
-                            <select
-                              value={order.status}
-                              disabled={updatingOrderId === order.id}
-                              onChange={(e) =>
-                                handleStatusChange(
-                                  order.id,
-                                  e.target.value as OrderStatus
-                                )
-                              }
-                              aria-label={`Order status for ${order.id}`}
-                              className={`h-9 px-2.5 rounded-lg border text-xs font-display font-bold focus:outline-none cursor-pointer ${
-                                order.status === 'Delivered'
-                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
-                                  : order.status === 'Dispatched'
-                                  ? 'bg-blue-50 border-blue-300 text-blue-800'
-                                  : order.status === 'Confirmed'
-                                  ? 'bg-indigo-50 border-indigo-300 text-indigo-800'
-                                  : order.status === 'Cancelled'
-                                  ? 'bg-red-50 border-red-300 text-red-800'
-                                  : 'bg-amber-50 border-amber-300 text-amber-800'
-                              }`}
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteOrder(order)}
+                              aria-label={`Delete order ${order.id}`}
+                              className="h-9 w-9 rounded-xl border border-slate-200 text-slate-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center shrink-0 cursor-pointer"
                             >
-                              {ORDER_STATUSES.map((st) => (
-                                <option key={st} value={st}>
-                                  {st}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
 
-                          {/* Google Sheet Sync Status */}
-                          <td className="py-3.5 px-4 whitespace-nowrap">
-                            <div className="flex flex-col items-start gap-1">
-                              <span
-                                className={`text-xs font-medium ${
-                                  order.sheetSynced
-                                    ? 'text-emerald-700'
-                                    : 'text-slate-500'
+                {/* DESKTOP VIEW (>= 768px): Full 8-Column Operations Table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-display font-bold uppercase tracking-wider text-slate-500">
+                        <th className="py-3 px-4">Order & Date</th>
+                        <th className="py-3 px-4">Customer & Contact</th>
+                        <th className="py-3 px-4">Delivery Destination</th>
+                        <th className="py-3 px-4">Product & Qty</th>
+                        <th className="py-3 px-4 text-right">Total (POD)</th>
+                        <th className="py-3 px-4">Pipeline Status</th>
+                        <th className="py-3 px-4">Sheet Sync</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 text-sm">
+                      {filteredOrders.map((order) => {
+                        const waLink = buildCustomerWhatsAppLink(order);
+                        return (
+                          <tr
+                            key={order.id}
+                            className="hover:bg-slate-50/80 transition-colors align-top"
+                          >
+                            {/* Order ID & Date */}
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              <span className="font-mono-num font-bold text-blue-700 block">
+                                {order.id}
+                              </span>
+                              <span className="text-xs text-slate-500 font-mono-num">
+                                {new Date(order.createdAt).toLocaleDateString(
+                                  'en-NG',
+                                  {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  }
+                                )}
+                              </span>
+                            </td>
+
+                            {/* Customer & Phone */}
+                            <td className="py-3.5 px-4">
+                              <p className="font-semibold text-slate-900">
+                                {order.customerName}
+                              </p>
+                              <p className="font-mono-num text-xs text-slate-600 mt-0.5">
+                                {order.phone}
+                              </p>
+                              {order.email && (
+                                <p className="text-xs text-slate-400 truncate max-w-[180px]">
+                                  {order.email}
+                                </p>
+                              )}
+                            </td>
+
+                            {/* Delivery Address & Notes */}
+                            <td className="py-3.5 px-4 max-w-xs">
+                              <p className="font-semibold text-slate-800 text-xs">
+                                {order.city} · {order.state}
+                              </p>
+                              <p className="text-xs text-slate-600 mt-0.5 leading-snug">
+                                {order.address}
+                              </p>
+                              {order.orderNote && (
+                                <p className="text-xs text-amber-700 mt-1">
+                                  Note: {order.orderNote}
+                                </p>
+                              )}
+                              {order.adminNote && (
+                                <p className="text-xs text-blue-700 mt-1 font-medium">
+                                  Dispatch: {order.adminNote}
+                                </p>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingNoteOrder(order);
+                                  setNoteDraft(order.adminNote || '');
+                                }}
+                                className="text-[11px] text-slate-400 hover:text-blue-700 underline mt-1 cursor-pointer"
+                              >
+                                {order.adminNote
+                                  ? 'Edit dispatch note'
+                                  : '+ Add dispatch note'}
+                              </button>
+                            </td>
+
+                            {/* Variant & Qty */}
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              <span className="text-xs font-display font-bold text-slate-800 block">
+                                {order.productType === 'RECHARGEABLE'
+                                  ? 'RECHARGEABLE'
+                                  : 'NON RECHARGEABLE'}
+                              </span>
+                              <span className="text-xs text-slate-500 font-mono-num">
+                                Qty: {order.quantity} ×{' '}
+                                {formatNaira(order.unitPrice)}
+                              </span>
+                            </td>
+
+                            {/* Total Amount */}
+                            <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                              <span className="font-mono-num font-extrabold text-slate-900">
+                                {formatNaira(order.totalAmount)}
+                              </span>
+                              <span className="block text-[11px] text-emerald-700">
+                                Pay on Delivery
+                              </span>
+                            </td>
+
+                            {/* Pipeline Status Selector */}
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              <select
+                                value={order.status}
+                                disabled={updatingOrderId === order.id}
+                                onChange={(e) =>
+                                  handleStatusChange(
+                                    order.id,
+                                    e.target.value as OrderStatus
+                                  )
+                                }
+                                aria-label={`Order status for ${order.id}`}
+                                className={`h-9 px-2.5 rounded-lg border text-xs font-display font-bold focus:outline-none cursor-pointer ${
+                                  order.status === 'Delivered'
+                                    ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                                    : order.status === 'Dispatched'
+                                    ? 'bg-blue-50 border-blue-300 text-blue-800'
+                                    : order.status === 'Confirmed'
+                                    ? 'bg-indigo-50 border-indigo-300 text-indigo-800'
+                                    : order.status === 'Cancelled'
+                                    ? 'bg-red-50 border-red-300 text-red-800'
+                                    : 'bg-amber-50 border-amber-300 text-amber-800'
                                 }`}
                               >
-                                {order.sheetSynced ? 'Synced' : 'Not synced'}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleSyncSingleOrder(order.id)}
-                                disabled={syncingOrderId === order.id}
-                                className="text-[11px] font-semibold text-blue-700 hover:underline flex items-center gap-1 cursor-pointer"
-                              >
-                                <RefreshCw
-                                  className={`w-3 h-3 ${
-                                    syncingOrderId === order.id
-                                      ? 'animate-spin'
-                                      : ''
-                                  }`}
-                                />
-                                {order.sheetSynced ? 'Re-sync' : 'Push to Sheet'}
-                              </button>
-                            </div>
-                          </td>
+                                {ORDER_STATUSES.map((st) => (
+                                  <option key={st} value={st}>
+                                    {st}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
 
-                          {/* One-Click WhatsApp & Delete */}
-                          <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                            <div className="inline-flex items-center gap-1.5">
-                              <a
-                                href={waLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                title="Send WhatsApp confirmation message to customer"
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-display font-bold transition-colors"
-                              >
-                                <MessageCircle className="w-3.5 h-3.5" />
-                                WhatsApp
-                              </a>
-                              <button
-                                type="button"
-                                onClick={() => setConfirmDeleteOrder(order)}
-                                title="Delete order"
-                                aria-label={`Delete order ${order.id}`}
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                            {/* Google Sheet Sync Status */}
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              <div className="flex flex-col items-start gap-1">
+                                <span
+                                  className={`text-xs font-medium ${
+                                    order.sheetSynced
+                                      ? 'text-emerald-700'
+                                      : 'text-slate-500'
+                                  }`}
+                                >
+                                  {order.sheetSynced ? 'Synced' : 'Not synced'}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSyncSingleOrder(order.id)}
+                                  disabled={syncingOrderId === order.id}
+                                  className="text-[11px] font-semibold text-blue-700 hover:underline flex items-center gap-1 cursor-pointer"
+                                >
+                                  <RefreshCw
+                                    className={`w-3 h-3 ${
+                                      syncingOrderId === order.id
+                                        ? 'animate-spin'
+                                        : ''
+                                    }`}
+                                  />
+                                  {order.sheetSynced
+                                    ? 'Re-sync'
+                                    : 'Push to Sheet'}
+                                </button>
+                              </div>
+                            </td>
+
+                            {/* One-Click WhatsApp & Delete */}
+                            <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                              <div className="inline-flex items-center gap-1.5">
+                                <a
+                                  href={waLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title="Send WhatsApp confirmation message to customer"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-display font-bold transition-colors"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5" />
+                                  WhatsApp
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmDeleteOrder(order)}
+                                  title="Delete order"
+                                  aria-label={`Delete order ${order.id}`}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
         )}
@@ -1890,6 +2099,52 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         </div>
       )}
+
+      {/* Fixed Bottom Navigation Bar for Mobile Admin App (< 768px) */}
+      <nav
+        aria-label="Mobile Admin Navigation"
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-1.5 grid grid-cols-3 gap-1 shadow-lg"
+      >
+        <button
+          type="button"
+          onClick={() => setActiveTab('orders')}
+          className={`flex flex-col items-center justify-center py-1.5 rounded-xl text-[11px] font-display font-bold transition-colors cursor-pointer ${
+            activeTab === 'orders'
+              ? 'bg-blue-50 text-blue-700'
+              : 'text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <Package className="w-4 h-4 mb-0.5" />
+          <span>Orders ({orders.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('analytics')}
+          className={`flex flex-col items-center justify-center py-1.5 rounded-xl text-[11px] font-display font-bold transition-colors cursor-pointer ${
+            activeTab === 'analytics'
+              ? 'bg-blue-50 text-blue-700'
+              : 'text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <TrendingUp className="w-4 h-4 mb-0.5" />
+          <span>Revenue & States</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('settings')}
+          className={`flex flex-col items-center justify-center py-1.5 rounded-xl text-[11px] font-display font-bold transition-colors cursor-pointer ${
+            activeTab === 'settings'
+              ? 'bg-blue-50 text-blue-700'
+              : 'text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <Settings className="w-4 h-4 mb-0.5" />
+          <span>Sheet & Settings</span>
+        </button>
+      </nav>
     </div>
   );
 };
+

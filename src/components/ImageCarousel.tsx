@@ -98,6 +98,25 @@ export const ImageCarousel: React.FC<ImageCarouselProps> = ({
     touchStartX.current = null;
   };
 
+  const [loadedIndices, setLoadedIndices] = useState<Record<number, boolean>>({
+    0: true,
+    1: true,
+  });
+
+  useEffect(() => {
+    const nextIdx = (currentIndex + 1) % totalSlides;
+    const prevIdx = (currentIndex - 1 + totalSlides) % totalSlides;
+    setLoadedIndices((prev) => {
+      if (prev[currentIndex] && prev[nextIdx] && prev[prevIdx]) return prev;
+      return {
+        ...prev,
+        [currentIndex]: true,
+        [nextIdx]: true,
+        [prevIdx]: true,
+      };
+    });
+  }, [currentIndex, totalSlides]);
+
   const currentSlide = slides[currentIndex];
 
   return (
@@ -117,31 +136,36 @@ export const ImageCarousel: React.FC<ImageCarouselProps> = ({
           className="flex w-full h-full transition-transform duration-300 ease-out"
           style={{ transform: `translateX(-${currentIndex * 100}%)` }}
         >
-          {slides.map((slide, idx) => (
-            <div
-              key={slide.id}
-              className="w-full h-full shrink-0 relative flex items-center justify-center bg-slate-950"
-            >
-              {!imageErrors[slide.id] ? (
-                <img
-                  src={slide.src}
-                  alt={slide.title}
-                  referrerPolicy="no-referrer"
-                  loading={idx === 0 ? 'eager' : 'lazy'}
-                  onError={() =>
-                    setImageErrors((prev) => ({ ...prev, [slide.id]: true }))
-                  }
-                  onClick={() => setLightboxOpen(true)}
-                  className="w-full h-full object-contain sm:object-cover cursor-zoom-in"
-                />
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center bg-slate-900 text-white">
-                  <p className="text-lg font-display font-bold">{slide.title}</p>
-                  <p className="text-sm text-slate-300 mt-1">{slide.subtitle}</p>
-                </div>
-              )}
-            </div>
-          ))}
+          {slides.map((slide, idx) => {
+            const shouldLoad = Boolean(loadedIndices[idx]);
+            return (
+              <div
+                key={slide.id}
+                className="w-full h-full shrink-0 relative flex items-center justify-center bg-slate-950"
+              >
+                {!imageErrors[slide.id] && shouldLoad ? (
+                  <img
+                    src={slide.src}
+                    alt={slide.title}
+                    referrerPolicy="no-referrer"
+                    loading={idx === 0 ? 'eager' : 'lazy'}
+                    fetchPriority={idx === 0 ? 'high' : 'low'}
+                    decoding={idx === 0 ? 'sync' : 'async'}
+                    onError={() =>
+                      setImageErrors((prev) => ({ ...prev, [slide.id]: true }))
+                    }
+                    onClick={() => setLightboxOpen(true)}
+                    className="w-full h-full object-contain sm:object-cover cursor-zoom-in"
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center bg-slate-900 text-white">
+                    <p className="text-lg font-display font-bold">{slide.title}</p>
+                    <p className="text-sm text-slate-300 mt-1">{slide.subtitle}</p>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* Top Left Slide Counter & Tag */}
@@ -240,6 +264,8 @@ export const ImageCarousel: React.FC<ImageCarouselProps> = ({
                 src={slide.src}
                 alt={slide.title}
                 referrerPolicy="no-referrer"
+                loading="lazy"
+                decoding="async"
                 className="w-full h-full object-cover"
               />
               <span

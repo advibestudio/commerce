@@ -1,6 +1,6 @@
 {
-  "summary":  "Fix GitHub Actions \"Dependencies lock file is not found\" error in .github/workflows/deploy.yml by removing the lockfile-dependent npm cache setting in actions/setup-node@v4.",
-  "updatedAt":  "2026-11-02T13:25:57.661143592Z",
-  "requestFeedback":  true,
-  "userFacing":  true
+  "summary": "Plan to redesign the Admin Web App UI/UX for mobile phones (touch-friendly order cards, 1-tap Call/WhatsApp actions, bottom navigation bar) and pre-configure + fix the Google Sheet & Apps Script connection so it never fails with \"Failed to fetch\".",
+  "updatedAt": "2026-11-02T13:50:27.091386871Z",
+  "requestFeedback": true,
+  "userFacing": true
 }
