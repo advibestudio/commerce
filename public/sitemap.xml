@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://ais-pre-vp37drvmxek3a3cy4c2p5n-613150783528.europe-west3.run.app/</loc>
+    <loc>https://advibestudio.github.io/commerce/mist-fan</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://advibestudio.github.io/commerce/</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
   </url>
 </urlset>

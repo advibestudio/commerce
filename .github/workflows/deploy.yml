@@ -32,10 +32,17 @@ jobs:
         run: npm install --legacy-peer-deps
 
       - name: Build production site
-        run: npx vite build --base=./
+        run: npx vite build --base=/${{ github.event.repository.name }}/
 
-      - name: Create SPA 404 fallback for /admin and /admin-app routes
-        run: cp dist/index.html dist/404.html
+      - name: Create SPA route entry points for /mist-fan, /thank-you, /admin, /admin-app, and 404 fallback
+        run: |
+          mkdir -p dist/mist-fan dist/mist-fan/thank-you dist/thank-you dist/admin dist/admin-app
+          cp dist/index.html dist/mist-fan/index.html
+          cp dist/index.html dist/mist-fan/thank-you/index.html
+          cp dist/index.html dist/thank-you/index.html
+          cp dist/index.html dist/admin/index.html
+          cp dist/index.html dist/admin-app/index.html
+          cp dist/index.html dist/404.html
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

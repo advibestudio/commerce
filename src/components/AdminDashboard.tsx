@@ -25,11 +25,15 @@ import {
   AdminVideoItem,
   DEFAULT_APPS_SCRIPT_URL,
   DEFAULT_GOOGLE_SHEET_URL,
+  DEFAULT_PRODUCT_PAGES,
+  DEFAULT_PRODUCT_SLUG,
   GOOGLE_APPS_SCRIPT_TEMPLATE,
   Order,
   OrderStatus,
+  ProductPageConfig,
   StoreSettings,
   buildCustomerWhatsAppLink,
+  buildPublicProductUrl,
   fetchOrdersFromGoogleAppsScriptDirect,
   formatNaira,
   postToGoogleAppsScriptDirect,
@@ -113,6 +117,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     settings.whatsappNumber || ''
   );
   const [newPasscode, setNewPasscode] = useState<string>('');
+
+  // Product Pages Manager state (inside Settings tab)
+  const [defaultProductSlug, setDefaultProductSlug] = useState<string>(
+    settings.defaultProductSlug || DEFAULT_PRODUCT_SLUG
+  );
+  const [redirectBaseToProduct, setRedirectBaseToProduct] = useState<boolean>(
+    settings.redirectBaseToProduct !== false
+  );
+  const [productPages, setProductPages] = useState<ProductPageConfig[]>(
+    Array.isArray(settings.productPages) && settings.productPages.length > 0
+      ? settings.productPages
+      : DEFAULT_PRODUCT_PAGES
+  );
+  const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
+  const [showAddProductForm, setShowAddProductForm] = useState<boolean>(false);
+  const [newProdSlug, setNewProdSlug] = useState<string>('');
+  const [newProdTitle, setNewProdTitle] = useState<string>('');
+  const [newProdPrice, setNewProdPrice] = useState<number>(45500);
 
   const [settingsSavedMsg, setSettingsSavedMsg] = useState<string | null>(null);
   const [webhookTestStatus, setWebhookTestStatus] = useState<{
@@ -638,9 +660,61 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     document.body.removeChild(link);
   };
 
+  const handleCopyProductLink = (slug: string) => {
+    const fullUrl = `https://advibestudio.github.io/commerce/${slug.replace(/^\/+|\/+$/g, '')}`;
+    navigator.clipboard.writeText(fullUrl);
+    setCopiedSlug(slug);
+    setTimeout(() => setCopiedSlug(null), 2000);
+  };
+
+  const handleAddProductPage = () => {
+    const cleanSlug = newProdSlug
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9-_]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+    if (!cleanSlug || !newProdTitle.trim()) return;
+    if (productPages.some((p) => p.slug === cleanSlug)) return;
+
+    const newPage: ProductPageConfig = {
+      id: `prod-${Date.now()}`,
+      slug: cleanSlug,
+      name: newProdTitle.trim().toUpperCase(),
+      shortTitle: newProdTitle.trim(),
+      subtitle:
+        'Direct Factory Wholesale Stock · Doorstep Inspection & Pay on Delivery',
+      rechargeablePrice: Number(newProdPrice) || 45500,
+      nonRechargeablePrice: Math.max(5000, (Number(newProdPrice) || 45500) - 5000),
+      originalPrice: (Number(newProdPrice) || 45500) + 12500,
+      stockCount: 38,
+      isActive: true,
+    };
+
+    const nextPages = [...productPages, newPage];
+    setProductPages(nextPages);
+    setNewProdSlug('');
+    setNewProdTitle('');
+    setShowAddProductForm(false);
+    onUpdateSettings({ productPages: nextPages });
+  };
+
   const handleSaveSettingsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSettingsSavedMsg(null);
+    const updatedProductPages = productPages.map((p) =>
+      p.slug === DEFAULT_PRODUCT_SLUG
+        ? {
+            ...p,
+            rechargeablePrice: Number(rechargeablePrice),
+            nonRechargeablePrice: Number(nonRechargeablePrice),
+            originalPrice: Number(originalPrice),
+            stockCount: Number(stockCount),
+          }
+        : p
+    );
+    setProductPages(updatedProductPages);
+
     const payload: Partial<StoreSettings> = {
       rechargeablePrice: Number(rechargeablePrice),
       nonRechargeablePrice: Number(nonRechargeablePrice),
@@ -650,6 +724,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       appsScriptUrl: appsScriptUrl.trim(),
       googleSheetUrl: googleSheetUrl.trim(),
       whatsappNumber: whatsappNumber.trim(),
+      defaultProductSlug: defaultProductSlug.trim() || DEFAULT_PRODUCT_SLUG,
+      redirectBaseToProduct,
+      productPages: updatedProductPages,
     };
     if (newPasscode.trim()) {
       payload.adminPasscode = newPasscode.trim();
@@ -1676,6 +1753,208 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <span>{settingsSavedMsg}</span>
                 </div>
               )}
+
+              {/* Product Pages & Base URL Redirect Manager */}
+              <div className="p-4 rounded-xl bg-blue-50/50 border border-blue-200 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <span className="text-xs font-display font-bold text-slate-900 block">
+                      Product Pages &amp; Base Link Redirect
+                    </span>
+                    <span className="text-[11px] text-slate-600">
+                      Base link{' '}
+                      <span className="font-mono-num font-semibold text-slate-800">
+                        advibestudio.github.io/commerce/
+                      </span>{' '}
+                      redirects to{' '}
+                      <span className="font-mono-num font-bold text-blue-700">
+                        /{defaultProductSlug}
+                      </span>
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddProductForm((prev) => !prev)}
+                    className="px-2.5 py-1.5 rounded-lg bg-white border border-blue-200 hover:bg-blue-50 text-blue-700 text-[11px] font-display font-bold shrink-0 cursor-pointer"
+                  >
+                    {showAddProductForm ? 'Cancel' : '+ Add Page'}
+                  </button>
+                </div>
+
+                {/* Toggle Base Redirect */}
+                <label className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-white border border-slate-200 cursor-pointer">
+                  <span className="text-xs font-medium text-slate-800">
+                    Auto-redirect base URL (<code className="font-mono-num">/commerce/</code>) to{' '}
+                    <code className="font-mono-num text-blue-700 font-bold">
+                      /{defaultProductSlug}
+                    </code>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={redirectBaseToProduct}
+                    onChange={(e) => setRedirectBaseToProduct(e.target.checked)}
+                    className="w-4 h-4 accent-blue-700 rounded cursor-pointer"
+                  />
+                </label>
+
+                {/* Active Product Pages List */}
+                <div className="space-y-2">
+                  {productPages.map((page) => {
+                    const isPrimary = page.slug === defaultProductSlug;
+                    const publicGhUrl = `https://advibestudio.github.io/commerce/${page.slug}`;
+                    const previewUrl = buildPublicProductUrl(page.slug);
+                    return (
+                      <div
+                        key={page.id}
+                        className="p-3 rounded-xl bg-white border border-slate-200 space-y-2"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-xs font-display font-bold text-slate-900 truncate">
+                              {page.shortTitle}
+                              {isPrimary ? ' · Default Redirect' : ''}
+                            </p>
+                            <p className="text-[11px] font-mono-num text-blue-700 break-all mt-0.5">
+                              {publicGhUrl}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleCopyProductLink(page.slug)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-display font-bold cursor-pointer"
+                            >
+                              {copiedSlug === page.slug ? (
+                                <>
+                                  <Check className="w-3 h-3 text-emerald-600" />
+                                  <span>Copied</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3" />
+                                  <span>Copy Link</span>
+                                </>
+                              )}
+                            </button>
+                            <a
+                              href={previewUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-[11px] font-display font-bold"
+                            >
+                              <span>Open</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </div>
+                        </div>
+
+                        {!isPrimary && (
+                          <div className="flex items-center justify-between pt-1.5 border-t border-slate-100 text-[11px]">
+                            <button
+                              type="button"
+                              onClick={() => setDefaultProductSlug(page.slug)}
+                              className="text-blue-700 font-semibold hover:underline cursor-pointer"
+                            >
+                              Set as Base URL Redirect Target
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = productPages.filter(
+                                  (p) => p.id !== page.id
+                                );
+                                setProductPages(next);
+                              }}
+                              className="text-red-600 hover:underline cursor-pointer"
+                            >
+                              Remove Page
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Thank You Page (Meta Purchase Pixel) Direct Link */}
+                <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs font-display font-bold text-emerald-950">
+                      Thank You Page (Meta Purchase Pixel URL)
+                    </p>
+                    <p className="text-[11px] font-mono-num text-emerald-800 break-all mt-0.5">
+                      https://advibestudio.github.io/commerce/thank-you
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleCopyProductLink('thank-you')}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white border border-emerald-200 hover:bg-emerald-100 text-emerald-900 text-[11px] font-display font-bold cursor-pointer"
+                    >
+                      {copiedSlug === 'thank-you' ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-600" />
+                          <span>Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3" />
+                          <span>Copy Link</span>
+                        </>
+                      )}
+                    </button>
+                    <a
+                      href={buildPublicProductUrl('thank-you')}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-display font-bold"
+                    >
+                      <span>Open</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                </div>
+
+                {/* Add New Standalone Product Page Form */}
+                {showAddProductForm && (
+                  <div className="p-3 rounded-xl bg-white border border-blue-200 space-y-2.5">
+                    <p className="text-xs font-display font-bold text-slate-900">
+                      Create New Product Page Route
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        placeholder="URL Slug (e.g. solar-fan)"
+                        value={newProdSlug}
+                        onChange={(e) => setNewProdSlug(e.target.value)}
+                        className="w-full h-9 px-2.5 rounded-lg border border-slate-200 text-xs font-mono-num"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Price in ₦ (e.g. 45500)"
+                        value={newProdPrice}
+                        onChange={(e) => setNewProdPrice(Number(e.target.value))}
+                        className="w-full h-9 px-2.5 rounded-lg border border-slate-200 text-xs font-mono-num"
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Product Headline Title"
+                      value={newProdTitle}
+                      onChange={(e) => setNewProdTitle(e.target.value)}
+                      className="w-full h-9 px-2.5 rounded-lg border border-slate-200 text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddProductPage}
+                      className="w-full py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-display font-bold cursor-pointer"
+                    >
+                      Save New Product Page
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* Google Apps Script Webhook URL & Direct Sheet Link */}
               <div className="p-4 rounded-xl bg-emerald-50/50 border border-emerald-200 space-y-3">

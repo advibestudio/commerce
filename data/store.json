@@ -1,7 +1,7 @@
 {
   "settings": {
-    "rechargeablePrice": 45500,
-    "nonRechargeablePrice": 40500,
+    "rechargeablePrice": 40500,
+    "nonRechargeablePrice": 35500,
     "originalPrice": 58000,
     "stockCount": 38,
     "youtubeUrl": "",

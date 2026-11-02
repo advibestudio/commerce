@@ -1,89 +1,84 @@
-# Meta Pixel Purchase Tracking, Dedicated Thank You Page & Gmail Pre-Order Receipt
+# Dedicated `/mist-fan` Product Page Route, Base Link Redirect & Admin Product Pages Manager
 
-Integrate the Meta (Facebook) Pixel (`1209947957634004`) across the storefront to track product views (`PageView` + `ViewContent`) on the main sales page and record verified `Purchase` conversions with dynamic `NGN` order totals exclusively on a dedicated full-page **Thank You** screen—complete with a prominent WhatsApp verification button and automated Gmail pre-order receipt emails stating that delivery is scheduled within 24–48 hours.
+Configure the High Quality 5-Jet Mist Fan as its own dedicated product page at `/mist-fan` (`https://advibestudio.github.io/commerce/mist-fan`), automatically redirect visitors who land on the base link (`https://advibestudio.github.io/commerce/`) straight to `/mist-fan`, and integrate a **Product Pages Manager** inside `/admin` > **Sheet & Settings** so you can manage this product page and future product pages while keeping the existing Admin mobile/desktop UI and UX completely intact.
 
 ## User Review & Critical Decisions
 
 > [!IMPORTANT]
-> The following product and tracking decisions have been confirmed and incorporated into this plan:
+> The following architectural and routing decisions have been confirmed:
 
-- **Dedicated Full-Page Thank You Screen**: Submitting an order transitions the visitor from the sales page to a dedicated full-screen **Thank You Page** (`#thank-you`) featuring a prominent WhatsApp CTA button that opens a pre-filled verification message to your WhatsApp number, an itemized order receipt, and a 24–48hr delivery schedule notice.
-- **Dynamic NGN Meta Pixel `Purchase` Tracking**:
-  - **Product Sales Page**: Fires `fbq('init', '1209947957634004')`, `fbq('track', 'PageView')`, and `fbq('track', 'ViewContent', { value: 45500, currency: 'NGN', ... })` so Facebook Ads optimizes for product viewers.
-  - **Thank You Page Only**: Fires `fbq('track', 'Purchase', { value: order.totalAmount, currency: 'NGN', num_items: order.quantity, ... })` (e.g., `45500` or `40500` × quantity) strictly once per completed order so Facebook Ads records accurate purchase conversions and ROAS.
-- **Automated Gmail Pre-Order Confirmation Receipt (24–48hr Delivery)**: Whenever a customer provides an email address on the order form, the Google Apps Script integration automatically sends a formatted HTML pre-order confirmation receipt from your Gmail account to the customer's email address confirming their Order ID, itemized Pay-on-Delivery total, and that their doorstep delivery will be scheduled within **24–48 hours**.
+- **Dedicated Product Page URL (`/mist-fan`)**:
+  - Public product URL on GitHub Pages: `https://advibestudio.github.io/commerce/mist-fan`
+  - Visiting the base storefront URL (`https://advibestudio.github.io/commerce/`) automatically forwards visitors directly to `https://advibestudio.github.io/commerce/mist-fan` with zero reload lag (`window.history.replaceState`), while direct visits to `/commerce/mist-fan` resolve with `HTTP 200 OK` via a pre-generated `dist/mist-fan/index.html` entry point in `.github/workflows/deploy.yml`.
+- **Product Pages Manager in Admin (Zero Change to Existing Admin UI/UX)**:
+  - Preserves your exact 3-tab mobile & desktop Admin UI/UX (**Orders**, **Revenue & States**, **Sheet & Settings**).
+  - Adds a compact **Product Pages & Direct Links Manager** inside the **Sheet & Settings** tab where you can view all product pages, copy the direct `/mist-fan` link (`https://advibestudio.github.io/commerce/mist-fan`) with one tap, configure which product page the base URL (`/commerce/`) redirects to, and manage each product page's pricing, stock, and videos.
 
 ---
 
 ## 1. Overview & Core Concept
 
 - **What It Does**:
-  1. Embeds your exact Meta Pixel (`1209947957634004`) snippet in the HTML `<head>` so every storefront visit is tracked immediately.
-  2. Fires `ViewContent` on the product sales page and delays the `Purchase` event until the customer completes the order form and lands on the dedicated **Thank You Page**.
-  3. Presents a distraction-free, high-trust **Thank You Page** with a large WhatsApp button (`Fast-Track Verification on WhatsApp`), full receipt summary, and confirmation that an email receipt has been dispatched with a **24–48 hours** delivery window.
-- **Target Audience / Persona**: Nigerian mobile shoppers ordering the High Quality 5-Jet Mist Fan from Facebook/Instagram ad campaigns, and the store owner optimizing Facebook Ad conversion attribution.
-- **Key Value**: Prevents false purchase events on page load while ensuring 100% of completed Pay-on-Delivery orders are attributed with their exact Naira value (`NGN`) in Meta Ads Manager.
+  1. Gives the High Quality 5-Jet Mist Fan its own dedicated route (`/mist-fan`) so you can add more standalone product sales pages under `https://advibestudio.github.io/commerce/<product-slug>` in the future.
+  2. Automatically routes anyone visiting the root URL (`https://advibestudio.github.io/commerce/`) straight to `/commerce/mist-fan` (or whichever product is set as your Primary Base Redirect in Admin).
+  3. Ensures all images, cached demo videos, Meta Pixel events (`PageView`, `ViewContent`, and Thank You `/mist-fan#thank-you` `Purchase`), and Google Sheet sync work seamlessly from `/commerce/mist-fan`.
+- **Target Audience / Persona**: Shoppers clicking your Facebook/Instagram ad links (`https://advibestudio.github.io/commerce/` or `https://advibestudio.github.io/commerce/mist-fan`) and the store owner managing multiple product landing pages from `/admin`.
+- **Key Value**: Future-proofs your storefront for multiple products while keeping the current Mist Fan funnel as the instant default destination.
 
 ---
 
 ## 2. User Experience & Visual Design
 
 - **Key User Flows**:
-  1. **Landing on Product Page (`PageView` + `ViewContent`)**: Shopper lands from a Facebook/Instagram ad; the Meta Pixel initializes and logs `PageView` and `ViewContent` (never `Purchase`).
-  2. **Placing an Order**: Shopper selects `RECHARGEABLE (₦45,500)` or `NON RECHARGEABLE (₦40,500)`, enters their contact details (including optional email), and taps **Order now**.
-  3. **Dedicated Full-Page Thank You Screen (`Purchase` Event Fired)**:
-     - The viewport switches to a full-page **Thank You** view and scrolls to the top.
-     - The Meta Pixel immediately fires `fbq('track', 'Purchase', { value: order.totalAmount, currency: 'NGN', ... })` along with a `<noscript>` fallback pixel for `ev=Purchase`.
-     - If the customer entered an email address, a clear confirmation banner displays: *"Pre-order confirmation receipt sent to [customer email] — Your doorstep delivery is scheduled within 24–48 hours."*
-     - A prominent emerald **Send Order to Our WhatsApp Now** primary CTA button sits front-and-center so the customer can immediately message you on WhatsApp.
-- **Visual Identity & Theme**:
-  - *Aesthetic Direction*: High-Trust Direct-Response Checkout Confirmation with clean receipt typography and unmistakable WhatsApp action hierarchy.
-  - *Color Palette & Mood*: Crisp `#F8FAFC` alabaster background, `#FFFFFF` receipt surface, `#059669` (Emerald 600) confirmation and WhatsApp primary CTA, and `#1D4ED8` (Royal Blue 700) tabular Naira price highlights.
-  - *Typography & Hierarchy*: `Plus Jakarta Sans` for confirmation headlines, `DM Sans` for delivery instructions, and `JetBrains Mono` (`tabular-nums`) for Order IDs and Naira totals.
+  1. **Visitor Opens Base Link (`https://advibestudio.github.io/commerce/`)**:
+     - Instantly redirects to `https://advibestudio.github.io/commerce/mist-fan` without a white-screen flash.
+     - Meta Pixel fires `PageView` and `ViewContent` for the `/mist-fan` product page.
+  2. **Visitor Opens Direct Product Link (`https://advibestudio.github.io/commerce/mist-fan`)**:
+     - Loads the dedicated Mist Fan sales page directly (`HTTP 200 OK` on GitHub Pages).
+     - Submitting an order transitions to `https://advibestudio.github.io/commerce/mist-fan#thank-you`, firing the Meta Pixel `Purchase` event with the dynamic `NGN` order total.
+  3. **Admin Manages Product Pages (`/admin` > `Sheet & Settings`)**:
+     - The existing mobile bottom navigation bar, 2×2 KPI summary cards, and touch-friendly order cards remain 100% unchanged.
+     - Inside **Sheet & Settings**, a **Product Pages Manager** card displays the active **High Quality 5-Jet Mist Fan (`/mist-fan`)** page with 1-tap **Copy Product Link**, **Open Page**, **Base URL Redirect Toggle** (`Redirect /commerce/ -> /commerce/mist-fan`), and **+ Add New Product Page** support for future products.
 
 ---
 
 ## 3. Key Product Decisions & Trade-Offs
 
-- **Decision 1: Deduped `Purchase` Event on the Dedicated Thank You Page**
-  - *Chosen Approach*: Track the last fired `order.id` in `sessionStorage` (`shittustores_pixel_purchased_<orderId>`) before invoking `fbq('track', 'Purchase', ...)`.
-  - *Why*: Ensures that every new order fires `Purchase` with the exact dynamic NGN total (`45500` or `40500` × quantity), while preventing duplicate `Purchase` events if the customer refreshes the Thank You page.
-- **Decision 2: Automated Customer Receipt Email via Google Apps Script (`MailApp.sendEmail`)**
-  - *Chosen Approach*: Trigger `MailApp.sendEmail` inside the Google Apps Script `doPost` webhook whenever a new order is logged with a valid customer email address, and pass `sendReceiptEmail: true` in the order sync payload.
-  - *Why*: Works 100% free and serverless on GitHub Pages using your connected Google account (`shittu.cfm@gmail.com`) without exposing any SMTP passwords or API keys in the frontend code.
+- **Decision 1: Static Entry Generation for `/mist-fan`, `/admin`, and `/admin-app` in GitHub Actions**
+  - *Chosen Approach*: In `.github/workflows/deploy.yml`, generate static route directories (`dist/mist-fan/index.html`, `dist/admin/index.html`, `dist/admin-app/index.html`) alongside `dist/404.html`, and resolve asset paths relative to the `/commerce/` base when accessed from a sub-directory.
+  - *Why*: Ensures Facebook Ads crawlers, WhatsApp link previews, and Google Search bots receive a real `HTTP 200 OK` response with full OpenGraph tags when visiting `https://advibestudio.github.io/commerce/mist-fan`.
+- **Decision 2: Non-Intrusive Product Selector Inside Settings**
+  - *Chosen Approach*: Embed the Product Pages Manager inside the existing **Sheet & Settings** tab rather than adding extra top-level navigation tabs.
+  - *Why*: Keeps the 3-button mobile bottom bar and Orders workflow fast, uncluttered, and identical to the layout you already use on your phone.
 
 ---
 
 ## 4. Technical Architecture & Data Strategy *(Technical Reference)*
 
-### Architecture & Conversion Flow Diagram
+### Multi-Page Storefront & Base Redirect Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                    PUBLIC PRODUCT PAGE (Storefront)                     │
-│  • index.html loads Meta Pixel (ID: 1209947957634004)                   │
-│  • Fires fbq('track', 'PageView') + fbq('track', 'ViewContent')         │
+│           BASE URL: https://advibestudio.github.io/commerce/            │
+│  • Checks active defaultProductSlug ('mist-fan')                        │
+│  • Automatically redirects URL -> /commerce/mist-fan                    │
 └───────────────────────────────────┬─────────────────────────────────────┘
-                                    │ Customer submits Order Form
+                                    │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│             ORDER SUBMISSION & GOOGLE APPS SCRIPT WEBHOOK               │
-│  • Appends order row to Google Sheet                                    │
-│  • If customer email provided -> MailApp.sendEmail() sends HTML         │
-│    Pre-Order Confirmation Receipt (Delivery scheduled within 24–48hrs)  │
+│      DEDICATED PRODUCT PAGE: /commerce/mist-fan                         │
+│  • Renders High Quality 5-Jet Mist Fan funnel                           │
+│  • Tracks Meta Pixel PageView + ViewContent                             │
+│  • Order submission -> /commerce/mist-fan#thank-you (Purchase Event)    │
 └───────────────────────────────────┬─────────────────────────────────────┘
-                                    │ Transitions to Dedicated View
+                                    │ Managed via
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                DEDICATED FULL-PAGE THANK YOU SCREEN                     │
-│  • Fires fbq('track', 'Purchase', { value: totalAmount, currency:'NGN'})│
-│  • Renders <noscript> Purchase pixel fallback                           │
-│  • Displays 24–48hr delivery schedule & email receipt confirmation      │
-│  • Prominent Primary CTA: "Confirm Order on WhatsApp Now"               │
+│      PRIVATE ADMIN PORTAL: /commerce/admin & /commerce/admin-app        │
+│  • Existing Mobile & Desktop UI/UX preserved 100%                       │
+│  • Sheet & Settings -> Product Pages Manager:                           │
+│    - Active Page: /mist-fan (1-tap Copy Link, Open, Edit Settings)      │
+│    - Base Link Redirect Target selector (Default: /mist-fan)            │
+│    - Add / Manage additional product pages                              │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
-
-### Interactive Component & State Mapping
-- **Global Meta Pixel Helper**: Safely wraps `window.fbq` calls (`trackPageView`, `trackProductView`, `trackPurchase(order)`) so ad-blockers or slow connections never throw runtime errors.
-- **Dedicated `ThankYouPage` View**: Replaces the main storefront layout when `completedOrder` state is active, auto-scrolls to top (`window.scrollTo(0, 0)`), fires `trackPurchase(completedOrder)` once per order ID, and provides 1-tap WhatsApp confirmation and receipt printing/copying.
-- **Updated Google Apps Script (`GOOGLE_APPS_SCRIPT_TEMPLATE`)**: Adds `sendCustomerReceiptEmail(order)` inside `doPost(e)` so any customer who provides an email address immediately receives a branded HTML pre-order receipt confirming 24–48hr doorstep delivery.

@@ -7,7 +7,7 @@ import {
   Pause,
   Play,
 } from 'lucide-react';
-import { CarouselSlide, PRODUCT_IMAGES } from '../types';
+import { CarouselSlide, PRODUCT_IMAGES, resolveAssetUrl } from '../types';
 
 interface ImageCarouselProps {
   slides?: CarouselSlide[];
@@ -145,7 +145,7 @@ export const ImageCarousel: React.FC<ImageCarouselProps> = ({
               >
                 {!imageErrors[slide.id] && shouldLoad ? (
                   <img
-                    src={slide.src}
+                    src={resolveAssetUrl(slide.src)}
                     alt={slide.title}
                     referrerPolicy="no-referrer"
                     loading={idx === 0 ? 'eager' : 'lazy'}
@@ -261,7 +261,7 @@ export const ImageCarousel: React.FC<ImageCarouselProps> = ({
               }`}
             >
               <img
-                src={slide.src}
+                src={resolveAssetUrl(slide.src)}
                 alt={slide.title}
                 referrerPolicy="no-referrer"
                 loading="lazy"
@@ -313,7 +313,7 @@ export const ImageCarousel: React.FC<ImageCarouselProps> = ({
 
             <div className="relative w-full max-h-[75vh] flex items-center justify-center bg-slate-950 rounded-2xl overflow-hidden border border-white/10">
               <img
-                src={currentSlide.src}
+                src={resolveAssetUrl(currentSlide.src)}
                 alt={currentSlide.title}
                 referrerPolicy="no-referrer"
                 className="max-h-[75vh] w-auto object-contain"

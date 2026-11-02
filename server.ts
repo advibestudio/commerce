@@ -49,6 +49,20 @@ interface StoreSettingsRecord {
   googleSheetUrl: string;
   whatsappNumber: string;
   adminPasscode: string;
+  defaultProductSlug?: string;
+  redirectBaseToProduct?: boolean;
+  productPages?: Array<{
+    id: string;
+    slug: string;
+    name: string;
+    shortTitle: string;
+    subtitle: string;
+    rechargeablePrice: number;
+    nonRechargeablePrice: number;
+    originalPrice: number;
+    stockCount: number;
+    isActive: boolean;
+  }>;
 }
 
 interface DatabaseSchema {
@@ -81,8 +95,8 @@ const DEFAULT_VIDEOS: StoredVideoItem[] = [
 
 const INITIAL_DATA: DatabaseSchema = {
   settings: {
-    rechargeablePrice: 45500,
-    nonRechargeablePrice: 40500,
+    rechargeablePrice: 40500,
+    nonRechargeablePrice: 35500,
     originalPrice: 58000,
     stockCount: 38,
     youtubeUrl: '',
@@ -631,6 +645,18 @@ async function startServer() {
     }
     if (typeof body.adminPasscode === 'string' && body.adminPasscode.trim()) {
       db.settings.adminPasscode = body.adminPasscode.trim();
+    }
+    if (typeof body.defaultProductSlug === 'string' && body.defaultProductSlug.trim()) {
+      db.settings.defaultProductSlug = body.defaultProductSlug
+        .trim()
+        .replace(/^\/+|\/+$/g, '')
+        .toLowerCase();
+    }
+    if (typeof body.redirectBaseToProduct === 'boolean') {
+      db.settings.redirectBaseToProduct = body.redirectBaseToProduct;
+    }
+    if (Array.isArray(body.productPages)) {
+      db.settings.productPages = body.productPages;
     }
 
     saveDb(db);

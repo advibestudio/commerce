@@ -19,10 +19,15 @@ import {
 import {
   DEFAULT_APPS_SCRIPT_URL,
   DEFAULT_GOOGLE_SHEET_URL,
+  DEFAULT_PRODUCT_PAGES,
+  DEFAULT_PRODUCT_SLUG,
   Order,
+  ProductPageConfig,
   StoreSettings,
   fetchOrdersFromGoogleAppsScriptDirect,
   formatNaira,
+  getStoreBasePath,
+  resolveAssetUrl,
   trackMetaPixelProductView,
 } from './types';
 import { ImageCarousel } from './components/ImageCarousel';
@@ -36,7 +41,7 @@ const AdminDashboard = lazy(() =>
   }))
 );
 
-const SETTINGS_STORAGE_KEY = 'shittustores_settings_v2';
+const SETTINGS_STORAGE_KEY = 'shittustores_settings_v3';
 const ORDERS_STORAGE_KEY = 'shittustores_orders_v1';
 
 const KEY_ADVANTAGES = [
@@ -103,9 +108,9 @@ const VERIFIED_REVIEWS = [
   },
 ];
 
-function detectRouteMode(): 'store' | 'admin' | 'admin-app' {
+function detectRouteMode(): 'store' | 'admin' | 'admin-app' | 'thank-you' {
   if (typeof window === 'undefined') return 'store';
-  const path = window.location.pathname.toLowerCase();
+  const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
   const hash = window.location.hash.toLowerCase();
   const search = window.location.search.toLowerCase();
 
@@ -130,25 +135,63 @@ function detectRouteMode(): 'store' | 'admin' | 'admin-app' {
     return 'admin';
   }
 
+  if (
+    path.endsWith('/thank-you') ||
+    path.includes('/thank-you/') ||
+    hash === '#thank-you' ||
+    hash === '#/thank-you' ||
+    search.includes('view=thank-you')
+  ) {
+    return 'thank-you';
+  }
+
   return 'store';
 }
 
+function detectProductSlugFromLocation(): string {
+  if (typeof window === 'undefined') return '';
+  const base = getStoreBasePath().toLowerCase();
+  let path = window.location.pathname.toLowerCase();
+  if (base && path.startsWith(base)) {
+    path = path.slice(base.length);
+  }
+  const clean = path
+    .replace(/\/thank-you\/?$/i, '')
+    .replace(/^\/+|\/+$/g, '');
+  if (
+    !clean ||
+    clean === 'index.html' ||
+    clean === 'admin' ||
+    clean === 'admin-app' ||
+    clean === 'thank-you'
+  ) {
+    return '';
+  }
+  return clean;
+}
+
 export default function App() {
-  const [routeMode, setRouteMode] = useState<'store' | 'admin' | 'admin-app'>(
-    () => detectRouteMode()
+  const [routeMode, setRouteMode] = useState<
+    'store' | 'admin' | 'admin-app' | 'thank-you'
+  >(() => detectRouteMode());
+  const [currentProductSlug, setCurrentProductSlug] = useState<string>(() =>
+    detectProductSlugFromLocation()
   );
   const [completedOrder, setCompletedOrder] = useState<Order | null>(null);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
   const [settings, setSettings] = useState<StoreSettings>(() => {
     const defaults: StoreSettings = {
-      rechargeablePrice: 45500,
-      nonRechargeablePrice: 40500,
+      rechargeablePrice: 40500,
+      nonRechargeablePrice: 35500,
       originalPrice: 58000,
       stockCount: 38,
       youtubeUrl: '',
       appsScriptUrl: DEFAULT_APPS_SCRIPT_URL,
       googleSheetUrl: DEFAULT_GOOGLE_SHEET_URL,
       whatsappNumber: '2348030000000',
+      defaultProductSlug: DEFAULT_PRODUCT_SLUG,
+      redirectBaseToProduct: true,
+      productPages: DEFAULT_PRODUCT_PAGES,
     };
     try {
       const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
@@ -160,6 +203,16 @@ export default function App() {
           appsScriptUrl: parsed.appsScriptUrl?.trim() || DEFAULT_APPS_SCRIPT_URL,
           googleSheetUrl:
             parsed.googleSheetUrl?.trim() || DEFAULT_GOOGLE_SHEET_URL,
+          defaultProductSlug:
+            parsed.defaultProductSlug?.trim() || DEFAULT_PRODUCT_SLUG,
+          redirectBaseToProduct:
+            typeof parsed.redirectBaseToProduct === 'boolean'
+              ? parsed.redirectBaseToProduct
+              : true,
+          productPages:
+            Array.isArray(parsed.productPages) && parsed.productPages.length > 0
+              ? parsed.productPages
+              : DEFAULT_PRODUCT_PAGES,
         };
       }
     } catch {
@@ -264,10 +317,8 @@ export default function App() {
     const syncRoute = () => {
       const nextMode = detectRouteMode();
       setRouteMode(nextMode);
-      if (
-        nextMode === 'store' &&
-        !window.location.hash.toLowerCase().includes('thank-you')
-      ) {
+      setCurrentProductSlug(detectProductSlugFromLocation());
+      if (nextMode === 'store') {
         setCompletedOrder(null);
       }
     };
@@ -278,6 +329,30 @@ export default function App() {
       window.removeEventListener('hashchange', syncRoute);
     };
   }, []);
+
+  // Automatically redirect visitors on the base link (e.g. https://advibestudio.github.io/commerce/) directly to /commerce/mist-fan
+  useEffect(() => {
+    if (routeMode !== 'store') return;
+    const defaultSlug = (
+      settings.defaultProductSlug || DEFAULT_PRODUCT_SLUG
+    ).replace(/^\/+|\/+$/g, '');
+    const slugInUrl = detectProductSlugFromLocation();
+
+    if (!slugInUrl && settings.redirectBaseToProduct !== false && defaultSlug) {
+      const base = getStoreBasePath();
+      const targetPath = `${base}/${defaultSlug}${window.location.search}${window.location.hash}`;
+      try {
+        window.history.replaceState({}, '', targetPath);
+        setCurrentProductSlug(defaultSlug);
+      } catch {
+        // Ignore history error
+      }
+    }
+  }, [
+    routeMode,
+    settings.defaultProductSlug,
+    settings.redirectBaseToProduct,
+  ]);
 
   // Track Meta Pixel ViewContent when visitor views the public product page
   useEffect(() => {
@@ -305,7 +380,7 @@ export default function App() {
       if (!existingManifest) {
         const link = document.createElement('link');
         link.rel = 'manifest';
-        link.href = './manifest.webmanifest';
+        link.href = resolveAssetUrl('./manifest.webmanifest');
         document.head.appendChild(link);
       }
     } else if (existingManifest) {
@@ -339,8 +414,10 @@ export default function App() {
       return next;
     });
     setCompletedOrder(newOrder);
+    setRouteMode('thank-you');
     try {
-      window.history.pushState({}, '', '#thank-you');
+      const base = getStoreBasePath();
+      window.history.pushState({}, '', `${base}/thank-you`);
     } catch {
       // Ignore history error
     }
@@ -408,11 +485,14 @@ export default function App() {
           settings={settings}
           isAppInstallerRoute={routeMode === 'admin-app'}
           onBackToStore={() => {
-            const basePath = window.location.pathname
-              .replace(/\/admin-app\/?$/i, '/')
-              .replace(/\/admin\/?$/i, '/');
-            window.history.pushState({}, '', basePath || '/');
+            const base = getStoreBasePath();
+            const defaultSlug = (
+              settings.defaultProductSlug || DEFAULT_PRODUCT_SLUG
+            ).replace(/^\/+|\/+$/g, '');
+            const targetUrl = `${base}/${defaultSlug}`;
+            window.history.pushState({}, '', targetUrl);
             setRouteMode('store');
+            setCurrentProductSlug(defaultSlug);
           }}
           onRefreshOrders={fetchStoreData}
           onUpdateSettings={handleUpdateSettings}
@@ -422,19 +502,71 @@ export default function App() {
     );
   }
 
-  if (completedOrder) {
+  const productPagesList: ProductPageConfig[] =
+    Array.isArray(settings.productPages) && settings.productPages.length > 0
+      ? settings.productPages
+      : DEFAULT_PRODUCT_PAGES;
+
+  const activeSlug =
+    currentProductSlug ||
+    settings.defaultProductSlug ||
+    DEFAULT_PRODUCT_SLUG;
+
+  const matchedProductPage =
+    productPagesList.find(
+      (p) => p.slug.toLowerCase() === activeSlug.toLowerCase()
+    ) || productPagesList[0];
+
+  const isDefaultMistFanPage =
+    !matchedProductPage || matchedProductPage.slug === DEFAULT_PRODUCT_SLUG;
+
+  const effectiveSettings: StoreSettings = isDefaultMistFanPage
+    ? settings
+    : {
+        ...settings,
+        rechargeablePrice: matchedProductPage.rechargeablePrice,
+        nonRechargeablePrice: matchedProductPage.nonRechargeablePrice,
+        originalPrice: matchedProductPage.originalPrice,
+        stockCount: matchedProductPage.stockCount,
+      };
+
+  if (completedOrder || routeMode === 'thank-you') {
+    const fallbackThankYouOrder: Order =
+      completedOrder ||
+      orders[0] || {
+        id: 'SHITTU-1001',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        productType: 'RECHARGEABLE',
+        unitPrice: effectiveSettings.rechargeablePrice,
+        quantity: 1,
+        totalAmount: effectiveSettings.rechargeablePrice,
+        customerName: 'Valued Customer',
+        phone: '0803 000 0000',
+        email: '',
+        state: 'Lagos',
+        city: 'Lagos',
+        address: 'Doorstep Delivery across Nigeria',
+        orderNote: '',
+        paymentMethod: 'Pay on delivery',
+        status: 'Pending',
+        sheetSynced: true,
+      };
+
     return (
       <ThankYouPage
-        order={completedOrder}
-        settings={settings}
+        order={fallbackThankYouOrder}
+        settings={effectiveSettings}
         onReturnToStore={() => {
           setCompletedOrder(null);
+          setRouteMode('store');
           try {
-            window.history.pushState(
-              {},
-              '',
-              window.location.pathname + window.location.search
-            );
+            const base = getStoreBasePath();
+            const defaultSlug = (
+              settings.defaultProductSlug || DEFAULT_PRODUCT_SLUG
+            ).replace(/^\/+|\/+$/g, '');
+            window.history.pushState({}, '', `${base}/${defaultSlug}`);
+            setCurrentProductSlug(defaultSlug);
           } catch {
             // Ignore
           }
@@ -445,12 +577,12 @@ export default function App() {
   }
 
   const minPrice = Math.min(
-    settings.nonRechargeablePrice,
-    settings.rechargeablePrice
+    effectiveSettings.nonRechargeablePrice,
+    effectiveSettings.rechargeablePrice
   );
   const maxPrice = Math.max(
-    settings.nonRechargeablePrice,
-    settings.rechargeablePrice
+    effectiveSettings.nonRechargeablePrice,
+    effectiveSettings.rechargeablePrice
   );
 
   return (
@@ -495,11 +627,14 @@ export default function App() {
           {/* Product Headline & Subheadline */}
           <div>
             <h1 className="text-2xl sm:text-4xl font-display font-extrabold text-slate-950 tracking-tight leading-[1.15]">
-              HIGH QUALITY MIST FAN WITH COLOUR CHANGING LED LIGHT
+              {isDefaultMistFanPage
+                ? 'HIGH QUALITY MIST FAN WITH COLOUR CHANGING LED LIGHT'
+                : matchedProductPage.name}
             </h1>
             <p className="text-sm sm:text-base text-slate-600 mt-2.5">
-              Direct Factory Wholesale Stock · Doorstep Inspection &amp; Pay on
-              Delivery
+              {isDefaultMistFanPage
+                ? 'Direct Factory Wholesale Stock · Doorstep Inspection & Pay on Delivery'
+                : matchedProductPage.subtitle}
             </p>
           </div>
 
@@ -517,11 +652,11 @@ export default function App() {
                   {formatNaira(minPrice)} – {formatNaira(maxPrice)}
                 </span>
                 <span className="text-base sm:text-lg font-mono-num text-slate-400 line-through">
-                  {formatNaira(settings.originalPrice)}
+                  {formatNaira(effectiveSettings.originalPrice)}
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                Non-Rechargeable: <span className="font-mono-num font-semibold text-slate-700">{formatNaira(settings.nonRechargeablePrice)}</span> · Rechargeable: <span className="font-mono-num font-semibold text-slate-700">{formatNaira(settings.rechargeablePrice)}</span>
+                Non-Rechargeable: <span className="font-mono-num font-semibold text-slate-700">{formatNaira(effectiveSettings.nonRechargeablePrice)}</span> · Rechargeable: <span className="font-mono-num font-semibold text-slate-700">{formatNaira(effectiveSettings.rechargeablePrice)}</span>
               </p>
             </div>
 
@@ -633,7 +768,7 @@ export default function App() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-950">
               <img
-                src="./assets/aistudio/2d00e22190f652d3f176e4ab6f8b7b61_91d885f9.jpeg"
+                src={resolveAssetUrl('./assets/aistudio/2d00e22190f652d3f176e4ab6f8b7b61_91d885f9.jpeg')}
                 alt="Spray humidification cooling fan 600ml 5 sprays"
                 loading="lazy"
                 decoding="async"
@@ -643,7 +778,7 @@ export default function App() {
             </div>
             <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-950">
               <img
-                src="./assets/aistudio/710a65b7b528469c3d8ffb6d3c4c4e57_e783070b.jpeg"
+                src={resolveAssetUrl('./assets/aistudio/710a65b7b528469c3d8ffb6d3c4c4e57_e783070b.jpeg')}
                 alt="7-Color LED Light Options and 1H/2H/3H Timer"
                 loading="lazy"
                 decoding="async"
@@ -798,7 +933,7 @@ export default function App() {
 
         {/* SECTION 10: FILL THIS FORM TO ORDER NOW (PDF Pages 6 & 7) */}
         <OrderForm
-          settings={settings}
+          settings={effectiveSettings}
           onOrderCreated={handleOrderCreated}
         />
 

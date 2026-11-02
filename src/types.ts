@@ -41,6 +41,19 @@ export interface AdminVideoItem extends PublicVideoItem {
   sourceUrl?: string;
 }
 
+export interface ProductPageConfig {
+  id: string;
+  slug: string;
+  name: string;
+  shortTitle: string;
+  subtitle: string;
+  rechargeablePrice: number;
+  nonRechargeablePrice: number;
+  originalPrice: number;
+  stockCount: number;
+  isActive: boolean;
+}
+
 export interface StoreSettings {
   rechargeablePrice: number;
   nonRechargeablePrice: number;
@@ -53,6 +66,64 @@ export interface StoreSettings {
   whatsappNumber: string;
   adminPasscode?: string;
   hasAppsScriptWebhook?: boolean;
+  defaultProductSlug?: string;
+  redirectBaseToProduct?: boolean;
+  productPages?: ProductPageConfig[];
+}
+
+export const DEFAULT_PRODUCT_SLUG = 'mist-fan';
+
+export const DEFAULT_PRODUCT_PAGES: ProductPageConfig[] = [
+  {
+    id: 'prod-mist-fan',
+    slug: 'mist-fan',
+    name: 'HIGH QUALITY MIST FAN WITH COLOUR CHANGING LED LIGHT',
+    shortTitle: 'High Quality 5-Jet Mist Fan',
+    subtitle:
+      'Direct Factory Wholesale Stock · Doorstep Inspection & Pay on Delivery',
+    rechargeablePrice: 40500,
+    nonRechargeablePrice: 35500,
+    originalPrice: 58000,
+    stockCount: 38,
+    isActive: true,
+  },
+];
+
+export function getStoreBasePath(): string {
+  if (typeof window === 'undefined') return '';
+  const path = window.location.pathname;
+  if (path === '/commerce' || path.startsWith('/commerce/')) {
+    return '/commerce';
+  }
+  return '';
+}
+
+export function resolveAssetUrl(assetPath: string): string {
+  if (!assetPath) return '';
+  if (
+    assetPath.startsWith('http://') ||
+    assetPath.startsWith('https://') ||
+    assetPath.startsWith('data:') ||
+    assetPath.startsWith('/api/')
+  ) {
+    return assetPath;
+  }
+  const clean = assetPath.replace(/^\.?\//, '');
+  const base = getStoreBasePath();
+  return `${base}/${clean}`;
+}
+
+export function buildPublicProductUrl(slug: string): string {
+  const cleanSlug = (slug || DEFAULT_PRODUCT_SLUG).replace(/^\/+|\/+$/g, '');
+  if (typeof window === 'undefined') {
+    return `https://advibestudio.github.io/commerce/${cleanSlug}`;
+  }
+  const host = window.location.origin;
+  const base = getStoreBasePath();
+  if (host.includes('github.io')) {
+    return `${host}${base}/${cleanSlug}`;
+  }
+  return `${host}${base}/${cleanSlug}`;
 }
 
 export interface CarouselSlide {
@@ -301,7 +372,7 @@ declare global {
   }
 }
 
-export function trackMetaPixelProductView(defaultPrice = 45500): void {
+export function trackMetaPixelProductView(defaultPrice = 40500): void {
   if (typeof window === 'undefined' || typeof window.fbq !== 'function') return;
   try {
     window.fbq('track', 'ViewContent', {
@@ -309,7 +380,7 @@ export function trackMetaPixelProductView(defaultPrice = 45500): void {
       content_category: 'Home & Cooling Appliances',
       content_ids: ['shittu-mist-fan-5jet'],
       content_type: 'product',
-      value: Number(defaultPrice) || 45500,
+      value: Number(defaultPrice) || 40500,
       currency: 'NGN',
     });
   } catch {
@@ -340,7 +411,7 @@ export function trackMetaPixelPurchase(order: Order): void {
           : 'NON RECHARGEABLE';
 
       window.fbq('track', 'Purchase', {
-        value: Number(order.totalAmount) || 45500,
+        value: Number(order.totalAmount) || 40500,
         currency: 'NGN',
         content_name: `High Quality 5-Jet Mist Fan (${variantName})`,
         content_type: 'product',
@@ -436,8 +507,8 @@ function sendCustomerReceiptEmail(order) {
 
     const variantLabel = order.productType === 'RECHARGEABLE' ? 'RECHARGEABLE' : 'NON RECHARGEABLE';
     const qty = Number(order.quantity || 1);
-    const unitPriceFormatted = '₦' + Number(order.unitPrice || 45500).toLocaleString();
-    const totalFormatted = '₦' + Number(order.totalAmount || 45500).toLocaleString();
+    const unitPriceFormatted = '₦' + Number(order.unitPrice || 40500).toLocaleString();
+    const totalFormatted = '₦' + Number(order.totalAmount || 40500).toLocaleString();
     const subject = 'Pre-Order Confirmation Receipt (' + (order.id || 'SHITTU') + ') — ShittuStores';
 
     const plainBody = [

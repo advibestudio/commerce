@@ -8,7 +8,7 @@ import {
   ChevronRight,
   ShieldCheck,
 } from 'lucide-react';
-import { PublicVideoItem } from '../types';
+import { PublicVideoItem, resolveAssetUrl } from '../types';
 
 interface ProtectedVideoPlayerProps {
   videos: PublicVideoItem[];
@@ -45,13 +45,15 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const currentVideo = safeVideos[activeIndex] || safeVideos[0];
-  const resolvedStreamUrl =
+  const rawStreamUrl =
     fallbackMap[currentVideo.id] || currentVideo.streamUrl;
+  const resolvedStreamUrl = resolveAssetUrl(rawStreamUrl);
 
-  const posterImage =
+  const posterImage = resolveAssetUrl(
     activeIndex % 2 === 0
       ? './assets/aistudio/2d00e22190f652d3f176e4ab6f8b7b61_91d885f9.jpeg'
-      : './assets/aistudio/710a65b7b528469c3d8ffb6d3c4c4e57_e783070b.jpeg';
+      : './assets/aistudio/710a65b7b528469c3d8ffb6d3c4c4e57_e783070b.jpeg'
+  );
 
   useEffect(() => {
     setIsPlaying(false);
