@@ -1,0 +1,323 @@
+export type ProductVariant = 'RECHARGEABLE' | 'NON_RECHARGEABLE';
+
+export type OrderStatus =
+  | 'Pending'
+  | 'Confirmed'
+  | 'Dispatched'
+  | 'Delivered'
+  | 'Cancelled';
+
+export interface Order {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  productType: ProductVariant;
+  unitPrice: number;
+  quantity: number;
+  totalAmount: number;
+  customerName: string;
+  phone: string;
+  email: string;
+  state: string;
+  city: string;
+  address: string;
+  orderNote: string;
+  paymentMethod: string;
+  status: OrderStatus;
+  adminNote?: string;
+  sheetSynced: boolean;
+  sheetSyncedAt?: string;
+  sheetSyncError?: string;
+}
+
+export interface PublicVideoItem {
+  id: string;
+  title: string;
+  streamUrl: string;
+  embedType?: 'mp4' | 'youtube';
+}
+
+export interface AdminVideoItem extends PublicVideoItem {
+  sourceUrl?: string;
+}
+
+export interface StoreSettings {
+  rechargeablePrice: number;
+  nonRechargeablePrice: number;
+  originalPrice: number;
+  stockCount: number;
+  youtubeUrl: string;
+  videos?: PublicVideoItem[];
+  appsScriptUrl: string;
+  googleSheetUrl?: string;
+  whatsappNumber: string;
+  adminPasscode?: string;
+  hasAppsScriptWebhook?: boolean;
+}
+
+export interface CarouselSlide {
+  id: string;
+  src: string;
+  title: string;
+  subtitle: string;
+  tag: string;
+}
+
+export const PRODUCT_IMAGES: CarouselSlide[] = [
+  {
+    id: 'mist-white-600ml',
+    src: '/assets/aistudio/2d00e22190f652d3f176e4ab6f8b7b61_91d885f9.jpeg',
+    title: '600ml Large Tank · 5-Jet Ultrasonic Mist',
+    subtitle: 'Low (1 Spray / 12H) · Medium (3 Sprays / 4H) · High (5 Sprays / 2.5H)',
+    tag: '5-JET MIST FAN',
+  },
+  {
+    id: 'led-7-color-timer',
+    src: '/assets/aistudio/710a65b7b528469c3d8ffb6d3c4c4e57_e783070b.jpeg',
+    title: '7-Color Soothing LED Night Light & Smart Timer',
+    subtitle: 'Built-in 1H / 2H / 3H auto-shutoff timer for uninterrupted night sleep',
+    tag: '7-COLOR LED & TIMER',
+  },
+  {
+    id: '3-fan-speeds-perfume',
+    src: '/assets/aistudio/137b256ed2e03f22ec2157a1e0d0768f_f7c4185a.jpeg',
+    title: '3 Fan Speeds + 60° Adjustable Airflow + Aroma Pad',
+    subtitle: 'Low, Medium & High wind speeds with center aroma sponge for perfume or essential oils',
+    tag: '3 SPEEDS & AROMA',
+  },
+  {
+    id: 'silent-mode-sleep',
+    src: '/assets/aistudio/8b0bb4b1bad9da1c48a0ee24d9403639_029ebc19.jpeg',
+    title: 'Whisper-Quiet 30–40dB Operation',
+    subtitle: 'Engineered for peaceful sleep, study, and office focus without loud motor noise',
+    tag: 'SILENT COOLING',
+  },
+  {
+    id: 'multi-room-lifestyle',
+    src: '/assets/aistudio/96364dec8588516a2dea5ff981895ac2_7ebdf7d1.jpeg',
+    title: 'Portable Cooling for Bedroom, Office, Kitchen & Home',
+    subtitle: 'Carry strap design lets you move instant cool air anywhere you need relief',
+    tag: 'PORTABLE EVERYWHERE',
+  },
+  {
+    id: 'mist-green-edition',
+    src: '/assets/aistudio/6cc30c4030b22bdebc6ab7add14970d6_5aa8c10b.jpeg',
+    title: 'Tap or Mineral Water Ready · Rapid Mist Cooling',
+    subtitle: 'Add cold water and ice cubes to drop surrounding air temperature in seconds',
+    tag: 'ICE WATER COOLING',
+  },
+  {
+    id: 'easy-to-clean',
+    src: '/assets/aistudio/e6cc602b0748d5dcdbc4f16c887a3c68_3795fc69.jpeg',
+    title: 'Easy To Clean & Hygienic Detachable Grille',
+    subtitle: 'Front fan guard removes effortlessly to wipe blades and clean the top water tank',
+    tag: 'HYGIENIC DESIGN',
+  },
+  {
+    id: 'package-dimensions',
+    src: '/assets/aistudio/060065cc049e3f571260676a2ffe8494_5d44809f.jpeg',
+    title: 'Original Factory Box · Compact 27.7cm × 21.5cm × 10cm',
+    subtitle: 'Securely boxed for nationwide courier dispatch across all 36 states in Nigeria',
+    tag: 'FACTORY SEALED BOX',
+  },
+  {
+    id: 'speed-modes-overview',
+    src: '/assets/aistudio/137b256ed2e03f22ec2157a1e0d0768f__1__f7c4185a.jpeg',
+    title: 'Custom Comfort for Sleep, Work & Workouts',
+    subtitle: 'Switch seamlessly between gentle breeze and high-velocity cooling mist',
+    tag: 'ALL-DAY COMFORT',
+  },
+];
+
+export const NIGERIAN_STATES = [
+  'Lagos',
+  'Abuja (FCT)',
+  'Rivers',
+  'Ogun',
+  'Oyo',
+  'Delta',
+  'Edo',
+  'Anambra',
+  'Enugu',
+  'Kaduna',
+  'Kano',
+  'Akwa Ibom',
+  'Imo',
+  'Abia',
+  'Kwara',
+  'Osun',
+  'Ondo',
+  'Ekiti',
+  'Cross River',
+  'Bayelsa',
+  'Plateau',
+  'Benue',
+  'Niger',
+  'Kogi',
+  'Nasarawa',
+  'Ebonyi',
+  'Bauchi',
+  'Gombe',
+  'Adamawa',
+  'Taraba',
+  'Katsina',
+  'Sokoto',
+  'Kebbi',
+  'Zamfara',
+  'Jigawa',
+  'Yobe',
+  'Borno',
+];
+
+export function formatNaira(amount: number): string {
+  return `₦${amount.toLocaleString('en-NG')}`;
+}
+
+export function formatNigerianWhatsAppPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('234')) return digits;
+  if (digits.startsWith('0') && digits.length === 11) {
+    return `234${digits.slice(1)}`;
+  }
+  if (digits.length === 10) {
+    return `234${digits}`;
+  }
+  return digits;
+}
+
+export function buildCustomerWhatsAppLink(order: Order): string {
+  const intlPhone = formatNigerianWhatsAppPhone(order.phone);
+  const variantLabel =
+    order.productType === 'RECHARGEABLE' ? 'Rechargeable' : 'Non-Rechargeable';
+  const message = [
+    `Hello ${order.customerName},`,
+    ``,
+    `Thank you for your order with *ShittuStores by Advibe Studios Commerce*!`,
+    ``,
+    `*Order Reference:* ${order.id}`,
+    `*Item:* High Quality 5-Jet Mist Fan (${variantLabel})`,
+    `*Quantity:* ${order.quantity}`,
+    `*Total (Pay on Delivery):* ${formatNaira(order.totalAmount)} (Free Doorstep Delivery)`,
+    `*Delivery Address:* ${order.address}, ${order.city}, ${order.state}`,
+    ``,
+    `Please reply *CONFIRM* so our dispatch courier can schedule your doorstep delivery right away.`,
+  ].join('\n');
+
+  return `https://wa.me/${intlPhone}?text=${encodeURIComponent(message)}`;
+}
+
+export const GOOGLE_APPS_SCRIPT_TEMPLATE = `/**
+ * SHITTUSTORES BY ADVIBE STUDIOS COMMERCE — GOOGLE SHEETS ORDER SYNC SCRIPT
+ * 
+ * Setup Instructions:
+ * 1. Open your Google Sheet -> Click "Extensions" > "Apps Script"
+ * 2. Delete any code in the editor and paste this entire script.
+ * 3. Click "Deploy" (top right) > "New deployment"
+ * 4. Select type: "Web app"
+ * 5. Set "Execute as": "Me"
+ * 6. Set "Who has access": "Anyone"
+ * 7. Click "Deploy", copy the Web App URL, and paste it in your ShittuStores Admin Settings!
+ */
+
+const HEADERS = [
+  'Order ID',
+  'Order Date',
+  'Status',
+  'Product Variant',
+  'Quantity',
+  'Unit Price (NGN)',
+  'Total Amount (NGN)',
+  'Customer Name',
+  'Phone Number',
+  'Email',
+  'State',
+  'City / Town',
+  'Delivery Address',
+  'Order Note',
+  'Payment Method',
+  'Admin Note',
+  'Last Updated'
+];
+
+function ensureSheetSetup(sheet) {
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(HEADERS);
+    const headerRange = sheet.getRange(1, 1, 1, HEADERS.length);
+    headerRange.setFontWeight('bold');
+    headerRange.setBackground('#1D4ED8');
+    headerRange.setFontColor('#FFFFFF');
+    sheet.setFrozenRows(1);
+  }
+}
+
+function orderToRow(order) {
+  return [
+    order.id || '',
+    order.createdAt ? new Date(order.createdAt).toLocaleString('en-NG') : new Date().toLocaleString('en-NG'),
+    order.status || 'Pending',
+    order.productType === 'RECHARGEABLE' ? 'RECHARGEABLE' : 'NON RECHARGEABLE',
+    Number(order.quantity || 1),
+    Number(order.unitPrice || 0),
+    Number(order.totalAmount || 0),
+    order.customerName || '',
+    "'" + (order.phone || ''),
+    order.email || '',
+    order.state || '',
+    order.city || '',
+    order.address || '',
+    order.orderNote || '',
+    order.paymentMethod || 'Pay on delivery',
+    order.adminNote || '',
+    new Date().toLocaleString('en-NG')
+  ];
+}
+
+function upsertOrder(sheet, order) {
+  ensureSheetSetup(sheet);
+  const lastRow = sheet.getLastRow();
+  const rowData = orderToRow(order);
+
+  if (lastRow > 1) {
+    const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues().flat();
+    const existingIndex = ids.indexOf(order.id);
+    if (existingIndex !== -1) {
+      const targetRow = existingIndex + 2;
+      sheet.getRange(targetRow, 1, 1, rowData.length).setValues([rowData]);
+      return 'updated';
+    }
+  }
+
+  sheet.appendRow(rowData);
+  return 'inserted';
+}
+
+function doPost(e) {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    const payload = JSON.parse(e.postData.contents);
+
+    if (payload.action === 'batch_upsert' && Array.isArray(payload.orders)) {
+      let count = 0;
+      payload.orders.forEach(function(order) {
+        upsertOrder(sheet, order);
+        count++;
+      });
+      return ContentService.createTextOutput(
+        JSON.stringify({ ok: true, message: 'Synced ' + count + ' orders' })
+      ).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const order = payload.order || payload;
+    const result = upsertOrder(sheet, order);
+
+    return ContentService.createTextOutput(
+      JSON.stringify({ ok: true, result: result, orderId: order.id })
+    ).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(
+      JSON.stringify({ ok: false, error: String(err) })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+`;

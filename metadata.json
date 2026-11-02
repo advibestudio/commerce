@@ -1,0 +1,6 @@
+{
+  "name": "Bora Direct Offer — High Quality Mist Fan Store & Order Tracker",
+  "description": "Direct-response Pay-on-Delivery sales page for the High Quality 5-Jet Mist Fan with Colour Changing LED Light, featuring an interactive product image carousel, Google Sheets Apps Script order sync, and a full-stack Admin Order Tracking Dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
