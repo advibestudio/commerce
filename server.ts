@@ -69,6 +69,14 @@ const DEFAULT_VIDEOS: StoredVideoItem[] = [
     localFile: 'demo_video_1.mp4',
     embedType: 'mp4',
   },
+  {
+    id: 'vid-2',
+    title: 'Rechargeable Mist Fan Demo #2',
+    sourceUrl:
+      'https://www.tiktok.com/@tospino_ghana/video/7422261146696092933?q=mini%20rechargeable%20cooling%20fan&t=1793623958900',
+    localFile: 'demo_video_2.mp4',
+    embedType: 'mp4',
+  },
 ];
 
 const INITIAL_DATA: DatabaseSchema = {
@@ -188,6 +196,12 @@ function loadDb(): DatabaseSchema {
       mergedSettings.videos.length === 0
     ) {
       mergedSettings.videos = structuredClone(DEFAULT_VIDEOS);
+    } else {
+      for (const defVid of DEFAULT_VIDEOS) {
+        if (!mergedSettings.videos.some((v) => v.id === defVid.id)) {
+          mergedSettings.videos.push(structuredClone(defVid));
+        }
+      }
     }
     return {
       settings: mergedSettings,

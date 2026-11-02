@@ -25,7 +25,13 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
           {
             id: 'vid-1',
             title: 'Live Mist & Cooling Inspection #1',
-            streamUrl: '/api/videos/stream/vid-1',
+            streamUrl: './assets/aistudio/demo_video_1.mp4',
+            embedType: 'mp4',
+          },
+          {
+            id: 'vid-2',
+            title: 'Rechargeable Mist Fan Demo #2',
+            streamUrl: './assets/aistudio/demo_video_2.mp4',
             embedType: 'mp4',
           },
         ];
@@ -34,9 +40,12 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
+  const [fallbackMap, setFallbackMap] = useState<Record<string, string>>({});
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const currentVideo = safeVideos[activeIndex] || safeVideos[0];
+  const resolvedStreamUrl =
+    fallbackMap[currentVideo.id] || currentVideo.streamUrl;
 
   useEffect(() => {
     setIsPlaying(false);
@@ -44,7 +53,23 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
     if (videoRef.current) {
       videoRef.current.load();
     }
-  }, [activeIndex, currentVideo.streamUrl]);
+  }, [activeIndex, resolvedStreamUrl]);
+
+  const handleVideoError = () => {
+    // If /api/videos/stream/vid-X fails (e.g. on static GitHub Pages), seamlessly switch to cached local asset
+    if (fallbackMap[currentVideo.id]) return;
+    if (currentVideo.id === 'vid-1') {
+      setFallbackMap((prev) => ({
+        ...prev,
+        'vid-1': './assets/aistudio/demo_video_1.mp4',
+      }));
+    } else if (currentVideo.id === 'vid-2') {
+      setFallbackMap((prev) => ({
+        ...prev,
+        'vid-2': './assets/aistudio/demo_video_2.mp4',
+      }));
+    }
+  };
 
   const togglePlay = () => {
     const vid = videoRef.current;
@@ -145,7 +170,7 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
           {currentVideo.embedType === 'youtube' ? (
             <div className="relative w-full h-full">
               <iframe
-                src={currentVideo.streamUrl}
+                src={resolvedStreamUrl}
                 title={currentVideo.title}
                 className="w-full h-full border-0 pointer-events-none"
                 allow="autoplay; encrypted-media"
@@ -158,7 +183,7 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
           ) : (
             <video
               ref={videoRef}
-              src={currentVideo.streamUrl}
+              src={resolvedStreamUrl}
               playsInline
               loop
               preload="metadata"
@@ -167,6 +192,7 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
               onTimeUpdate={handleTimeUpdate}
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
+              onError={handleVideoError}
               onContextMenu={(e) => e.preventDefault()}
               className="w-full h-full object-cover pointer-events-none"
             />

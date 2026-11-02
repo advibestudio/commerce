@@ -66,63 +66,63 @@ export interface CarouselSlide {
 export const PRODUCT_IMAGES: CarouselSlide[] = [
   {
     id: 'mist-white-600ml',
-    src: '/assets/aistudio/2d00e22190f652d3f176e4ab6f8b7b61_91d885f9.jpeg',
+    src: './assets/aistudio/2d00e22190f652d3f176e4ab6f8b7b61_91d885f9.jpeg',
     title: '600ml Large Tank · 5-Jet Ultrasonic Mist',
     subtitle: 'Low (1 Spray / 12H) · Medium (3 Sprays / 4H) · High (5 Sprays / 2.5H)',
     tag: '5-JET MIST FAN',
   },
   {
     id: 'led-7-color-timer',
-    src: '/assets/aistudio/710a65b7b528469c3d8ffb6d3c4c4e57_e783070b.jpeg',
+    src: './assets/aistudio/710a65b7b528469c3d8ffb6d3c4c4e57_e783070b.jpeg',
     title: '7-Color Soothing LED Night Light & Smart Timer',
     subtitle: 'Built-in 1H / 2H / 3H auto-shutoff timer for uninterrupted night sleep',
     tag: '7-COLOR LED & TIMER',
   },
   {
     id: '3-fan-speeds-perfume',
-    src: '/assets/aistudio/137b256ed2e03f22ec2157a1e0d0768f_f7c4185a.jpeg',
+    src: './assets/aistudio/137b256ed2e03f22ec2157a1e0d0768f_f7c4185a.jpeg',
     title: '3 Fan Speeds + 60° Adjustable Airflow + Aroma Pad',
     subtitle: 'Low, Medium & High wind speeds with center aroma sponge for perfume or essential oils',
     tag: '3 SPEEDS & AROMA',
   },
   {
     id: 'silent-mode-sleep',
-    src: '/assets/aistudio/8b0bb4b1bad9da1c48a0ee24d9403639_029ebc19.jpeg',
+    src: './assets/aistudio/8b0bb4b1bad9da1c48a0ee24d9403639_029ebc19.jpeg',
     title: 'Whisper-Quiet 30–40dB Operation',
     subtitle: 'Engineered for peaceful sleep, study, and office focus without loud motor noise',
     tag: 'SILENT COOLING',
   },
   {
     id: 'multi-room-lifestyle',
-    src: '/assets/aistudio/96364dec8588516a2dea5ff981895ac2_7ebdf7d1.jpeg',
+    src: './assets/aistudio/96364dec8588816a2dea5ff981895ac2_7ebdf7d1.jpeg'.replace('96364dec8588816a2dea5ff981895ac2_7ebdf7d1.jpeg', '96364dec8588516a2dea5ff981895ac2_7ebdf7d1.jpeg'),
     title: 'Portable Cooling for Bedroom, Office, Kitchen & Home',
     subtitle: 'Carry strap design lets you move instant cool air anywhere you need relief',
     tag: 'PORTABLE EVERYWHERE',
   },
   {
     id: 'mist-green-edition',
-    src: '/assets/aistudio/6cc30c4030b22bdebc6ab7add14970d6_5aa8c10b.jpeg',
+    src: './assets/aistudio/6cc30c4030b22bdebc6ab7add14970d6_5aa8c10b.jpeg',
     title: 'Tap or Mineral Water Ready · Rapid Mist Cooling',
     subtitle: 'Add cold water and ice cubes to drop surrounding air temperature in seconds',
     tag: 'ICE WATER COOLING',
   },
   {
     id: 'easy-to-clean',
-    src: '/assets/aistudio/e6cc602b0748d5dcdbc4f16c887a3c68_3795fc69.jpeg',
+    src: './assets/aistudio/e6cc602b0748d5dcdbc4f16c887a3c68_3795fc69.jpeg',
     title: 'Easy To Clean & Hygienic Detachable Grille',
     subtitle: 'Front fan guard removes effortlessly to wipe blades and clean the top water tank',
     tag: 'HYGIENIC DESIGN',
   },
   {
     id: 'package-dimensions',
-    src: '/assets/aistudio/060065cc049e3f571260676a2ffe8494_5d44809f.jpeg',
+    src: './assets/aistudio/060065cc049e3f571260676a2ffe8494_5d44809f.jpeg',
     title: 'Original Factory Box · Compact 27.7cm × 21.5cm × 10cm',
     subtitle: 'Securely boxed for nationwide courier dispatch across all 36 states in Nigeria',
     tag: 'FACTORY SEALED BOX',
   },
   {
     id: 'speed-modes-overview',
-    src: '/assets/aistudio/137b256ed2e03f22ec2157a1e0d0768f__1__f7c4185a.jpeg',
+    src: './assets/aistudio/137b256ed2e03f22ec2157a1e0d0768f__1__f7c4185a.jpeg',
     title: 'Custom Comfort for Sleep, Work & Workouts',
     subtitle: 'Switch seamlessly between gentle breeze and high-velocity cooling mist',
     tag: 'ALL-DAY COMFORT',
@@ -207,8 +207,58 @@ export function buildCustomerWhatsAppLink(order: Order): string {
   return `https://wa.me/${intlPhone}?text=${encodeURIComponent(message)}`;
 }
 
+export async function postToGoogleAppsScriptDirect(
+  appsScriptUrl: string,
+  payload: Record<string, unknown>
+): Promise<{ ok: boolean; error?: string }> {
+  const trimmed = (appsScriptUrl || '').trim();
+  if (!trimmed) {
+    return { ok: false, error: 'No Google Apps Script URL configured.' };
+  }
+  try {
+    const res = await fetch(trimmed, {
+      method: 'POST',
+      headers: {
+        // Using text/plain avoids CORS preflight rejection on Google Apps Script Web Apps
+        'Content-Type': 'text/plain;charset=utf-8',
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      return { ok: false, error: `Webhook returned HTTP ${res.status}` };
+    }
+    return { ok: true };
+  } catch (err: unknown) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'Failed to reach Apps Script URL',
+    };
+  }
+}
+
+export async function fetchOrdersFromGoogleAppsScriptDirect(
+  appsScriptUrl: string
+): Promise<Order[] | null> {
+  const trimmed = (appsScriptUrl || '').trim();
+  if (!trimmed) return null;
+  try {
+    const res = await fetch(`${trimmed}${trimmed.includes('?') ? '&' : '?'}action=list`, {
+      method: 'GET',
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data && Array.isArray(data.orders)) {
+      return data.orders as Order[];
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export const GOOGLE_APPS_SCRIPT_TEMPLATE = `/**
  * SHITTUSTORES BY ADVIBE STUDIOS COMMERCE — GOOGLE SHEETS ORDER SYNC SCRIPT
+ * (Supports both Instant Order Logging via doPost and Admin Mobile App Live Sync via doGet)
  * 
  * Setup Instructions:
  * 1. Open your Google Sheet -> Click "Extensions" > "Apps Script"
@@ -292,6 +342,50 @@ function upsertOrder(sheet, order) {
   return 'inserted';
 }
 
+function doGet(e) {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    ensureSheetSetup(sheet);
+    const lastRow = sheet.getLastRow();
+    if (lastRow <= 1) {
+      return ContentService.createTextOutput(
+        JSON.stringify({ ok: true, orders: [] })
+      ).setMimeType(ContentService.MimeType.JSON);
+    }
+    const rows = sheet.getRange(2, 1, lastRow - 1, HEADERS.length).getValues();
+    const orders = rows.map(function(r) {
+      return {
+        id: String(r[0] || ''),
+        createdAt: r[1] ? new Date(r[1]).toISOString() : new Date().toISOString(),
+        updatedAt: r[16] ? new Date(r[16]).toISOString() : new Date().toISOString(),
+        status: String(r[2] || 'Pending'),
+        productType: String(r[3] || '').indexOf('NON') !== -1 ? 'NON_RECHARGEABLE' : 'RECHARGEABLE',
+        quantity: Number(r[4] || 1),
+        unitPrice: Number(r[5] || 45500),
+        totalAmount: Number(r[6] || 45500),
+        customerName: String(r[7] || ''),
+        phone: String(r[8] || '').replace(/^'/, ''),
+        email: String(r[9] || ''),
+        state: String(r[10] || 'Lagos'),
+        city: String(r[11] || ''),
+        address: String(r[12] || ''),
+        orderNote: String(r[13] || ''),
+        paymentMethod: String(r[14] || 'Pay on delivery'),
+        adminNote: String(r[15] || ''),
+        sheetSynced: true
+      };
+    }).reverse();
+
+    return ContentService.createTextOutput(
+      JSON.stringify({ ok: true, orders: orders })
+    ).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(
+      JSON.stringify({ ok: false, error: String(err) })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
 function doPost(e) {
   try {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
@@ -321,3 +415,4 @@ function doPost(e) {
   }
 }
 `;
+

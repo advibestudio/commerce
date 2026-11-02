@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /admin-app
+Disallow: /admin-app/
+Disallow: /*?view=admin*
+Disallow: /*?admin=1*
+
+Sitemap: /sitemap.xml

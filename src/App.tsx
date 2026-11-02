@@ -20,12 +20,16 @@ import {
 import {
   Order,
   StoreSettings,
+  fetchOrdersFromGoogleAppsScriptDirect,
   formatNaira,
 } from './types';
 import { ImageCarousel } from './components/ImageCarousel';
 import { OrderForm } from './components/OrderForm';
 import { AdminDashboard } from './components/AdminDashboard';
 import { ProtectedVideoPlayer } from './components/ProtectedVideoPlayer';
+
+const SETTINGS_STORAGE_KEY = 'shittustores_settings_v1';
+const ORDERS_STORAGE_KEY = 'shittustores_orders_v1';
 
 const KEY_ADVANTAGES = [
   'Turn on 3-in-1 function: includes functions of fan, air conditioner and air humidifier.',
@@ -82,7 +86,7 @@ const VERIFIED_REVIEWS = [
   {
     quote:
       '“Legit item. Pay on delivery was so convenient and courier was very courteous. 10/10 recommendation.”',
-    author: 'Emmanuel K. (Abuja)',
+  author: 'Emmanuel K. (Abuja)',
   },
   {
     quote:
@@ -91,61 +95,87 @@ const VERIFIED_REVIEWS = [
   },
 ];
 
-function extractYouTubeEmbedUrl(url: string): string | null {
-  if (!url) return null;
-  const trimmed = url.trim();
-  const shortsMatch = trimmed.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]{6,})/);
-  if (shortsMatch) {
-    return `https://www.youtube.com/embed/${shortsMatch[1]}`;
-  }
-  const watchMatch = trimmed.match(/[?&]v=([a-zA-Z0-9_-]{6,})/);
-  if (watchMatch) {
-    return `https://www.youtube.com/embed/${watchMatch[1]}`;
-  }
-  const shortLinkMatch = trimmed.match(/youtu\.be\/([a-zA-Z0-9_-]{6,})/);
-  if (shortLinkMatch) {
-    return `https://www.youtube.com/embed/${shortLinkMatch[1]}`;
-  }
-  if (trimmed.includes('youtube.com/embed/')) {
-    return trimmed;
-  }
-  return null;
-}
-
-function isUrlAdminRoute(): boolean {
-  if (typeof window === 'undefined') return false;
+function detectRouteMode(): 'store' | 'admin' | 'admin-app' {
+  if (typeof window === 'undefined') return 'store';
   const path = window.location.pathname.toLowerCase();
   const hash = window.location.hash.toLowerCase();
   const search = window.location.search.toLowerCase();
-  return (
-    path === '/admin' ||
-    path.startsWith('/admin/') ||
+
+  if (
+    path.endsWith('/admin-app') ||
+    path.includes('/admin-app/') ||
+    hash === '#admin-app' ||
+    hash === '#/admin-app' ||
+    search.includes('view=admin-app')
+  ) {
+    return 'admin-app';
+  }
+
+  if (
+    path.endsWith('/admin') ||
+    path.includes('/admin/') ||
     hash === '#admin' ||
     hash === '#/admin' ||
     search.includes('admin=1') ||
     search.includes('view=admin')
-  );
+  ) {
+    return 'admin';
+  }
+
+  return 'store';
 }
 
 export default function App() {
-  const [view, setView] = useState<'store' | 'admin'>(() =>
-    isUrlAdminRoute() ? 'admin' : 'store'
+  const [routeMode, setRouteMode] = useState<'store' | 'admin' | 'admin-app'>(
+    () => detectRouteMode()
   );
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
-  const [settings, setSettings] = useState<StoreSettings>({
-    rechargeablePrice: 45500,
-    nonRechargeablePrice: 40500,
-    originalPrice: 58000,
-    stockCount: 38,
-    youtubeUrl: '',
-    appsScriptUrl: '',
-    googleSheetUrl: '',
-    whatsappNumber: '2348030000000',
+  const [settings, setSettings] = useState<StoreSettings>(() => {
+    const defaults: StoreSettings = {
+      rechargeablePrice: 45500,
+      nonRechargeablePrice: 40500,
+      originalPrice: 58000,
+      stockCount: 38,
+      youtubeUrl: '',
+      appsScriptUrl: '',
+      googleSheetUrl: '',
+      whatsappNumber: '2348030000000',
+    };
+    try {
+      const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
+      if (saved) {
+        return { ...defaults, ...JSON.parse(saved) };
+      }
+    } catch {
+      // Ignore storage error
+    }
+    return defaults;
   });
-  const [orders, setOrders] = useState<Order[]>([]);
+
+  const [orders, setOrders] = useState<Order[]>(() => {
+    try {
+      const saved = localStorage.getItem(ORDERS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {
+      // Ignore storage error
+    }
+    return [];
+  });
 
   // Countdown timer starting at 04:26:26 (15,986 seconds) matching Page 2 of PDF
   const [secondsLeft, setSecondsLeft] = useState<number>(4 * 3600 + 26 * 60 + 26);
+
+  const updateOrdersState = useCallback((nextOrders: Order[]) => {
+    setOrders(nextOrders);
+    try {
+      localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(nextOrders));
+    } catch {
+      // Ignore storage error
+    }
+  }, []);
 
   const fetchStoreData = useCallback(async () => {
     try {
@@ -153,20 +183,48 @@ export default function App() {
         fetch('/api/settings'),
         fetch('/api/orders'),
       ]);
-      if (settingsRes.ok) {
+      const sType = settingsRes.headers.get('content-type') || '';
+      const oType = ordersRes.headers.get('content-type') || '';
+
+      if (settingsRes.ok && sType.includes('application/json')) {
         const sData = await settingsRes.json();
-        setSettings((prev) => ({ ...prev, ...sData }));
+        setSettings((prev) => {
+          const merged = { ...prev, ...sData };
+          try {
+            localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(merged));
+          } catch {
+            // Ignore
+          }
+          return merged;
+        });
       }
-      if (ordersRes.ok) {
+
+      if (ordersRes.ok && oType.includes('application/json')) {
         const oData = await ordersRes.json();
         if (Array.isArray(oData.orders)) {
-          setOrders(oData.orders);
+          updateOrdersState(oData.orders);
+          return;
         }
       }
     } catch {
-      // Keep defaults on initial offline load
+      // Running on static host (e.g. GitHub Pages)
     }
-  }, []);
+
+    // If running on static GitHub Pages and Google Sheet Apps Script URL is configured, pull live orders from Sheet
+    try {
+      const savedSettingsRaw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+      const savedSettings = savedSettingsRaw ? JSON.parse(savedSettingsRaw) : null;
+      const scriptUrl = savedSettings?.appsScriptUrl || settings.appsScriptUrl;
+      if (scriptUrl) {
+        const sheetOrders = await fetchOrdersFromGoogleAppsScriptDirect(scriptUrl);
+        if (sheetOrders && sheetOrders.length > 0) {
+          updateOrdersState(sheetOrders);
+        }
+      }
+    } catch {
+      // Keep localStorage orders
+    }
+  }, [settings.appsScriptUrl, updateOrdersState]);
 
   useEffect(() => {
     fetchStoreData();
@@ -174,7 +232,7 @@ export default function App() {
 
   useEffect(() => {
     const syncRoute = () => {
-      setView(isUrlAdminRoute() ? 'admin' : 'store');
+      setRouteMode(detectRouteMode());
     };
     window.addEventListener('popstate', syncRoute);
     window.addEventListener('hashchange', syncRoute);
@@ -183,6 +241,33 @@ export default function App() {
       window.removeEventListener('hashchange', syncRoute);
     };
   }, []);
+
+  // Dynamically control SEO robots meta & Admin-Only PWA manifest link
+  useEffect(() => {
+    const isAdminView = routeMode === 'admin' || routeMode === 'admin-app';
+    const robotsMeta = document.querySelector('meta[name="robots"]');
+    if (robotsMeta) {
+      robotsMeta.setAttribute(
+        'content',
+        isAdminView
+          ? 'noindex, nofollow'
+          : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
+      );
+    }
+
+    // Ensure PWA manifest is ONLY attached when on /admin or /admin-app so public visitors never get an Admin App install prompt
+    const existingManifest = document.querySelector('link[rel="manifest"]');
+    if (isAdminView) {
+      if (!existingManifest) {
+        const link = document.createElement('link');
+        link.rel = 'manifest';
+        link.href = './manifest.webmanifest';
+        document.head.appendChild(link);
+      }
+    } else if (existingManifest) {
+      existingManifest.parentNode?.removeChild(existingManifest);
+    }
+  }, [routeMode]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -199,8 +284,16 @@ export default function App() {
   };
 
   const handleOrderCreated = (newOrder: Order, newStockCount: number) => {
-    setOrders((prev) => [newOrder, ...prev]);
-    setSettings((prev) => ({ ...prev, stockCount: newStockCount }));
+    updateOrdersState([newOrder, ...orders]);
+    setSettings((prev) => {
+      const next = { ...prev, stockCount: newStockCount };
+      try {
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // Ignore
+      }
+      return next;
+    });
   };
 
   const handleUpdateSettings = async (
@@ -212,15 +305,36 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updated),
       });
-      const data = await res.json();
-      if (res.ok && data.settings) {
-        setSettings((prev) => ({ ...prev, ...data.settings }));
-        return true;
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
+        const data = await res.json();
+        if (data.settings) {
+          setSettings((prev) => {
+            const next = { ...prev, ...data.settings };
+            try {
+              localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(next));
+            } catch {
+              // Ignore
+            }
+            return next;
+          });
+          return true;
+        }
       }
-      return false;
     } catch {
-      return false;
+      // Static Hosting fallback
     }
+
+    setSettings((prev) => {
+      const next = { ...prev, ...updated };
+      try {
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // Ignore
+      }
+      return next;
+    });
+    return true;
   };
 
   const scrollToOrderForm = () => {
@@ -230,18 +344,22 @@ export default function App() {
     }
   };
 
-  if (view === 'admin') {
+  if (routeMode === 'admin' || routeMode === 'admin-app') {
     return (
       <AdminDashboard
         orders={orders}
         settings={settings}
+        isAppInstallerRoute={routeMode === 'admin-app'}
         onBackToStore={() => {
-          window.history.pushState({}, '', '/');
-          setView('store');
+          const basePath = window.location.pathname
+            .replace(/\/admin-app\/?$/i, '/')
+            .replace(/\/admin\/?$/i, '/');
+          window.history.pushState({}, '', basePath || '/');
+          setRouteMode('store');
         }}
         onRefreshOrders={fetchStoreData}
         onUpdateSettings={handleUpdateSettings}
-        onOrdersUpdated={setOrders}
+        onOrdersUpdated={updateOrdersState}
       />
     );
   }
@@ -254,7 +372,6 @@ export default function App() {
     settings.nonRechargeablePrice,
     settings.rechargeablePrice
   );
-  const embedVideoUrl = extractYouTubeEmbedUrl(settings.youtubeUrl);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 pb-20">
@@ -436,7 +553,7 @@ export default function App() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-950">
               <img
-                src="/assets/aistudio/2d00e22190f652d3f176e4ab6f8b7b61_91d885f9.jpeg"
+                src="./assets/aistudio/2d00e22190f652d3f176e4ab6f8b7b61_91d885f9.jpeg"
                 alt="Spray humidification cooling fan 600ml 5 sprays"
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-cover"
@@ -444,7 +561,7 @@ export default function App() {
             </div>
             <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-950">
               <img
-                src="/assets/aistudio/710a65b7b528469c3d8ffb6d3c4c4e57_e783070b.jpeg"
+                src="./assets/aistudio/710a65b7b528469c3d8ffb6d3c4c4e57_e783070b.jpeg"
                 alt="7-Color LED Light Options and 1H/2H/3H Timer"
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-cover"

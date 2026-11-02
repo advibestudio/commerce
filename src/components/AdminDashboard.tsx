@@ -18,6 +18,7 @@ import {
   Video,
   Package,
   MapPin,
+  Smartphone,
 } from 'lucide-react';
 import {
   AdminVideoItem,
@@ -26,12 +27,16 @@ import {
   OrderStatus,
   StoreSettings,
   buildCustomerWhatsAppLink,
+  fetchOrdersFromGoogleAppsScriptDirect,
   formatNaira,
+  postToGoogleAppsScriptDirect,
 } from '../types';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface AdminDashboardProps {
   orders: Order[];
   settings: StoreSettings;
+  isAppInstallerRoute?: boolean;
   onBackToStore: () => void;
   onRefreshOrders: () => Promise<void>;
   onUpdateSettings: (updated: Partial<StoreSettings>) => Promise<boolean>;
@@ -49,6 +54,7 @@ const ORDER_STATUSES: OrderStatus[] = [
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   orders,
   settings,
+  isAppInstallerRoute = false,
   onBackToStore,
   onRefreshOrders,
   onUpdateSettings,
@@ -63,7 +69,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Navigation Tabs
   const [activeTab, setActiveTab] = useState<
     'orders' | 'analytics' | 'settings'
-  >('orders');
+  >(isAppInstallerRoute ? 'settings' : 'orders');
 
   // Filters for Orders Table
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -200,15 +206,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ passcode: passcodeInput }),
       });
-      const data = await res.json();
-      if (res.ok && data.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await res.json();
+        if (res.ok && data.ok) {
+          setIsUnlocked(true);
+          loadAdminVideos();
+          return;
+        } else {
+          setAuthError(data.error || 'Incorrect admin passcode.');
+          return;
+        }
+      }
+      // Static Hosting (GitHub Pages) fallback verification
+      const expected = settings.adminPasscode || '1234';
+      if (passcodeInput === expected) {
         setIsUnlocked(true);
-        loadAdminVideos();
       } else {
-        setAuthError(data.error || 'Incorrect admin passcode.');
+        setAuthError('Incorrect admin passcode.');
       }
     } catch {
-      setAuthError('Could not verify passcode. Please try again.');
+      const expected = settings.adminPasscode || '1234';
+      if (passcodeInput === expected) {
+        setIsUnlocked(true);
+      } else {
+        setAuthError('Incorrect admin passcode.');
+      }
     } finally {
       setIsVerifying(false);
     }
@@ -317,10 +340,51 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       });
-      const data = await res.json();
-      if (res.ok && data.order) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
+        const data = await res.json();
+        if (data.order) {
+          onOrdersUpdated(
+            orders.map((o) => (o.id === orderId ? data.order : o))
+          );
+          return;
+        }
+      }
+      // Static Hosting fallback
+      const target = orders.find((o) => o.id === orderId);
+      if (target) {
+        const updatedOrder: Order = {
+          ...target,
+          status: newStatus,
+          updatedAt: new Date().toISOString(),
+        };
+        if (settings.appsScriptUrl) {
+          const syncRes = await postToGoogleAppsScriptDirect(
+            settings.appsScriptUrl,
+            { action: 'upsert_order', order: updatedOrder }
+          );
+          updatedOrder.sheetSynced = syncRes.ok;
+        }
         onOrdersUpdated(
-          orders.map((o) => (o.id === orderId ? data.order : o))
+          orders.map((o) => (o.id === orderId ? updatedOrder : o))
+        );
+      }
+    } catch {
+      const target = orders.find((o) => o.id === orderId);
+      if (target) {
+        const updatedOrder: Order = {
+          ...target,
+          status: newStatus,
+          updatedAt: new Date().toISOString(),
+        };
+        if (settings.appsScriptUrl) {
+          await postToGoogleAppsScriptDirect(settings.appsScriptUrl, {
+            action: 'upsert_order',
+            order: updatedOrder,
+          });
+        }
+        onOrdersUpdated(
+          orders.map((o) => (o.id === orderId ? updatedOrder : o))
         );
       }
     } finally {
@@ -337,13 +401,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminNote: noteDraft }),
       });
-      const data = await res.json();
-      if (res.ok && data.order) {
-        onOrdersUpdated(
-          orders.map((o) => (o.id === editingNoteOrder.id ? data.order : o))
-        );
-        setEditingNoteOrder(null);
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
+        const data = await res.json();
+        if (data.order) {
+          onOrdersUpdated(
+            orders.map((o) => (o.id === editingNoteOrder.id ? data.order : o))
+          );
+          setEditingNoteOrder(null);
+          return;
+        }
       }
+      const updatedOrder: Order = {
+        ...editingNoteOrder,
+        adminNote: noteDraft,
+        updatedAt: new Date().toISOString(),
+      };
+      if (settings.appsScriptUrl) {
+        await postToGoogleAppsScriptDirect(settings.appsScriptUrl, {
+          action: 'upsert_order',
+          order: updatedOrder,
+        });
+      }
+      onOrdersUpdated(
+        orders.map((o) => (o.id === editingNoteOrder.id ? updatedOrder : o))
+      );
+      setEditingNoteOrder(null);
+    } catch {
+      const updatedOrder: Order = {
+        ...editingNoteOrder,
+        adminNote: noteDraft,
+        updatedAt: new Date().toISOString(),
+      };
+      onOrdersUpdated(
+        orders.map((o) => (o.id === editingNoteOrder.id ? updatedOrder : o))
+      );
+      setEditingNoteOrder(null);
     } finally {
       setUpdatingOrderId(null);
     }
@@ -353,16 +446,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (!confirmDeleteOrder) return;
     const id = confirmDeleteOrder.id;
     try {
-      const res = await fetch(`/api/orders/${id}`, {
+      await fetch(`/api/orders/${id}`, {
         method: 'DELETE',
       });
-      if (res.ok) {
-        onOrdersUpdated(orders.filter((o) => o.id !== id));
-        setConfirmDeleteOrder(null);
-      }
     } catch {
-      // Ignore error
+      // Ignore error on static host
     }
+    onOrdersUpdated(orders.filter((o) => o.id !== id));
+    setConfirmDeleteOrder(null);
   };
 
   const handleSyncSingleOrder = async (orderId: string) => {
@@ -371,17 +462,53 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const res = await fetch(`/api/orders/${orderId}/sync`, {
         method: 'POST',
       });
-      const data = await res.json();
-      if (data.order) {
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await res.json();
+        if (data.order) {
+          onOrdersUpdated(
+            orders.map((o) => (o.id === orderId ? data.order : o))
+          );
+        }
+        if (!data.ok && data.error) {
+          setWebhookTestStatus({
+            type: 'error',
+            message: `Sync notice for ${orderId}: ${data.error}`,
+          });
+        }
+        return;
+      }
+      // Direct browser sync on GitHub Pages
+      const target = orders.find((o) => o.id === orderId);
+      if (target && settings.appsScriptUrl) {
+        const directRes = await postToGoogleAppsScriptDirect(
+          settings.appsScriptUrl,
+          { action: 'upsert_order', order: target }
+        );
+        const updatedOrder: Order = {
+          ...target,
+          sheetSynced: directRes.ok,
+          sheetSyncedAt: directRes.ok ? new Date().toISOString() : undefined,
+        };
         onOrdersUpdated(
-          orders.map((o) => (o.id === orderId ? data.order : o))
+          orders.map((o) => (o.id === orderId ? updatedOrder : o))
         );
       }
-      if (!data.ok && data.error) {
-        setWebhookTestStatus({
-          type: 'error',
-          message: `Sync notice for ${orderId}: ${data.error}`,
-        });
+    } catch {
+      const target = orders.find((o) => o.id === orderId);
+      if (target && settings.appsScriptUrl) {
+        const directRes = await postToGoogleAppsScriptDirect(
+          settings.appsScriptUrl,
+          { action: 'upsert_order', order: target }
+        );
+        const updatedOrder: Order = {
+          ...target,
+          sheetSynced: directRes.ok,
+          sheetSyncedAt: directRes.ok ? new Date().toISOString() : undefined,
+        };
+        onOrdersUpdated(
+          orders.map((o) => (o.id === orderId ? updatedOrder : o))
+        );
       }
     } finally {
       setSyncingOrderId(null);
@@ -393,19 +520,62 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setWebhookTestStatus(null);
     try {
       const res = await fetch('/api/orders/sync-all', { method: 'POST' });
-      const data = await res.json();
-      if (data.ok && Array.isArray(data.orders)) {
-        onOrdersUpdated(data.orders);
-        setWebhookTestStatus({
-          type: 'success',
-          message: `Successfully synced all ${data.orders.length} orders to your Google Sheet!`,
-        });
-      } else {
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await res.json();
+        if (data.ok && Array.isArray(data.orders)) {
+          onOrdersUpdated(data.orders);
+          setWebhookTestStatus({
+            type: 'success',
+            message: `Successfully synced all ${data.orders.length} orders to your Google Sheet!`,
+          });
+        } else {
+          setWebhookTestStatus({
+            type: 'error',
+            message:
+              data.error ||
+              'Could not sync orders. Check your Google Apps Script URL in Settings.',
+          });
+        }
+        return;
+      }
+      // Static Hosting fallback: direct batch upsert + pull from Google Sheet
+      const targetUrl = (appsScriptUrl || settings.appsScriptUrl || '').trim();
+      if (!targetUrl) {
         setWebhookTestStatus({
           type: 'error',
-          message:
-            data.error ||
-            'Could not sync orders. Check your Google Apps Script URL in Settings.',
+          message: 'Please save your Google Apps Script Web App URL in Settings first.',
+        });
+        return;
+      }
+      const batchRes = await postToGoogleAppsScriptDirect(targetUrl, {
+        action: 'batch_upsert',
+        orders,
+      });
+      const pulled = await fetchOrdersFromGoogleAppsScriptDirect(targetUrl);
+      if (pulled && pulled.length > 0) {
+        onOrdersUpdated(pulled);
+      } else if (batchRes.ok) {
+        onOrdersUpdated(orders.map((o) => ({ ...o, sheetSynced: true })));
+      }
+      setWebhookTestStatus({
+        type: batchRes.ok ? 'success' : 'error',
+        message: batchRes.ok
+          ? 'Synced orders directly with your Google Sheet!'
+          : batchRes.error || 'Could not reach Google Apps Script URL.',
+      });
+    } catch {
+      const targetUrl = (appsScriptUrl || settings.appsScriptUrl || '').trim();
+      if (targetUrl) {
+        const batchRes = await postToGoogleAppsScriptDirect(targetUrl, {
+          action: 'batch_upsert',
+          orders,
+        });
+        setWebhookTestStatus({
+          type: batchRes.ok ? 'success' : 'error',
+          message: batchRes.ok
+            ? 'Synced orders directly with your Google Sheet!'
+            : batchRes.error || 'Could not reach Google Apps Script URL.',
         });
       }
     } finally {
@@ -495,32 +665,95 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleTestWebhook = async () => {
     setIsTestingWebhook(true);
     setWebhookTestStatus(null);
+    const trimmedUrl = appsScriptUrl.trim();
     try {
-      await onUpdateSettings({ appsScriptUrl: appsScriptUrl.trim() });
+      await onUpdateSettings({ appsScriptUrl: trimmedUrl });
       const res = await fetch('/api/webhook/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ appsScriptUrl: appsScriptUrl.trim() }),
+        body: JSON.stringify({ appsScriptUrl: trimmedUrl }),
       });
-      const data = await res.json();
-      if (res.ok && data.ok) {
-        setWebhookTestStatus({
-          type: 'success',
-          message:
-            'Test order (SHITTU-TEST) sent and recorded in your Google Sheet!',
-        });
-      } else {
-        setWebhookTestStatus({
-          type: 'error',
-          message:
-            data.error ||
-            'Webhook test failed. Ensure your Apps Script is deployed with access set to "Anyone".',
-        });
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await res.json();
+        if (res.ok && data.ok) {
+          setWebhookTestStatus({
+            type: 'success',
+            message:
+              'Test order (SHITTU-TEST) sent and recorded in your Google Sheet!',
+          });
+        } else {
+          setWebhookTestStatus({
+            type: 'error',
+            message:
+              data.error ||
+              'Webhook test failed. Ensure your Apps Script is deployed with access set to "Anyone".',
+          });
+        }
+        return;
       }
-    } catch {
+
+      // Direct test on static GitHub Pages
+      const sampleOrder: Order = {
+        id: 'SHITTU-TEST',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        productType: 'RECHARGEABLE',
+        unitPrice: rechargeablePrice,
+        quantity: 1,
+        totalAmount: rechargeablePrice,
+        customerName: 'Test Customer (Webhook Verification)',
+        phone: '08030000000',
+        email: 'test@shittustores.ng',
+        state: 'Lagos',
+        city: 'Ikeja',
+        address: '10 Allen Avenue, Ikeja, Lagos',
+        orderNote: 'Test webhook ping from ShittuStores Admin',
+        paymentMethod: 'Pay on delivery',
+        status: 'Pending',
+        adminNote: 'Webhook verified',
+        sheetSynced: true,
+      };
+      const directRes = await postToGoogleAppsScriptDirect(trimmedUrl, {
+        action: 'upsert_order',
+        order: sampleOrder,
+      });
       setWebhookTestStatus({
-        type: 'error',
-        message: 'Network error testing webhook URL.',
+        type: directRes.ok ? 'success' : 'error',
+        message: directRes.ok
+          ? 'Test order (SHITTU-TEST) sent and recorded in your Google Sheet!'
+          : directRes.error || 'Webhook test failed.',
+      });
+    } catch {
+      const sampleOrder: Order = {
+        id: 'SHITTU-TEST',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        productType: 'RECHARGEABLE',
+        unitPrice: rechargeablePrice,
+        quantity: 1,
+        totalAmount: rechargeablePrice,
+        customerName: 'Test Customer (Webhook Verification)',
+        phone: '08030000000',
+        email: 'test@shittustores.ng',
+        state: 'Lagos',
+        city: 'Ikeja',
+        address: '10 Allen Avenue, Ikeja, Lagos',
+        orderNote: 'Test webhook ping from ShittuStores Admin',
+        paymentMethod: 'Pay on delivery',
+        status: 'Pending',
+        adminNote: 'Webhook verified',
+        sheetSynced: true,
+      };
+      const directRes = await postToGoogleAppsScriptDirect(trimmedUrl, {
+        action: 'upsert_order',
+        order: sampleOrder,
+      });
+      setWebhookTestStatus({
+        type: directRes.ok ? 'success' : 'error',
+        message: directRes.ok
+          ? 'Test order (SHITTU-TEST) sent and recorded in your Google Sheet!'
+          : directRes.error || 'Network error testing webhook URL.',
       });
     } finally {
       setIsTestingWebhook(false);
@@ -553,18 +786,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
 
           <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center mb-4">
-            <Lock className="w-6 h-6" />
+            {isAppInstallerRoute ? (
+              <Smartphone className="w-6 h-6" />
+            ) : (
+              <Lock className="w-6 h-6" />
+            )}
           </div>
 
           <h1 className="text-2xl font-display font-extrabold text-slate-900">
-            ShittuStores Order Portal
+            {isAppInstallerRoute
+              ? 'ShittuAdmin Mobile App Portal'
+              : 'ShittuStores Order Portal'}
           </h1>
           <p className="text-xs font-semibold text-blue-700 mt-0.5">
-            by Advibe Studios Commerce
+            by Advibe Studios Commerce · Private Owner Access Only
           </p>
           <p className="text-sm text-slate-600 mt-1">
-            Enter your admin passcode to view customer orders, manage Google
-            Sheets sync, and update store pricing.
+            {isAppInstallerRoute
+              ? 'Enter your admin passcode to unlock and download the private ShittuAdmin Order Manager app onto your phone.'
+              : 'Enter your admin passcode to view customer orders, manage Google Sheets sync, and update store pricing.'}
           </p>
 
           <form onSubmit={handleUnlock} className="mt-6 space-y-4">
@@ -601,7 +841,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               disabled={isVerifying}
               className="w-full py-3.5 px-5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-display font-bold text-sm transition-colors cursor-pointer"
             >
-              {isVerifying ? 'Verifying...' : 'Unlock Dashboard'}
+              {isVerifying
+                ? 'Verifying...'
+                : isAppInstallerRoute
+                ? 'Unlock & Get Mobile App'
+                : 'Unlock Dashboard'}
             </button>
           </form>
         </div>
@@ -659,7 +903,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </button>
           </nav>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2.5 shrink-0">
+            <PWAInstallButton variant="compact" />
             <button
               type="button"
               onClick={onBackToStore}
@@ -672,6 +917,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
+        {/* Private Admin Mobile App Installer Card (Highlighted on /admin-app or Settings tab) */}
+        {(isAppInstallerRoute || activeTab === 'settings') && (
+          <PWAInstallButton variant="card" />
+        )}
         {/* KPI Summary Row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white rounded-2xl border border-slate-200 p-5">

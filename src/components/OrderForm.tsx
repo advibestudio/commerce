@@ -18,6 +18,7 @@ import {
   StoreSettings,
   formatNaira,
   formatNigerianWhatsAppPhone,
+  postToGoogleAppsScriptDirect,
 } from '../types';
 
 interface OrderFormProps {
@@ -94,17 +95,101 @@ export const OrderForm: React.FC<OrderFormProps> = ({
         }),
       });
 
-      const data = await response.json();
-      if (!response.ok || !data.ok) {
-        throw new Error(data.error || 'Could not submit your order. Please try again.');
+      const contentType = response.headers.get('content-type') || '';
+      if (response.ok && contentType.includes('application/json')) {
+        const data = await response.json();
+        if (data.ok && data.order) {
+          setSubmittedOrder(data.order);
+          onOrderCreated(data.order, data.stockCount);
+          return;
+        }
       }
 
-      setSubmittedOrder(data.order);
-      onOrderCreated(data.order, data.stockCount);
-    } catch (err: unknown) {
-      setErrorMsg(
-        err instanceof Error ? err.message : 'Network error submitting order.'
-      );
+      // Static Hosting (GitHub Pages) Fallback: Create order directly & sync to Google Sheet Apps Script
+      const nowIso = new Date().toISOString();
+      const randomNum = Math.floor(1000 + Math.random() * 9000);
+      const fallbackOrder: Order = {
+        id: `SHITTU-${randomNum}`,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        productType: selectedType,
+        unitPrice,
+        quantity,
+        totalAmount: total,
+        customerName: customerName.trim(),
+        phone: phone.trim(),
+        email: email.trim(),
+        state,
+        city: city.trim(),
+        address: address.trim(),
+        orderNote: orderNote.trim(),
+        paymentMethod,
+        status: 'Pending',
+        adminNote: '',
+        sheetSynced: false,
+      };
+
+      if (settings.appsScriptUrl) {
+        const syncRes = await postToGoogleAppsScriptDirect(
+          settings.appsScriptUrl,
+          {
+            action: 'upsert_order',
+            order: fallbackOrder,
+          }
+        );
+        fallbackOrder.sheetSynced = syncRes.ok;
+        if (syncRes.ok) {
+          fallbackOrder.sheetSyncedAt = new Date().toISOString();
+        } else {
+          fallbackOrder.sheetSyncError = syncRes.error;
+        }
+      }
+
+      const nextStock = Math.max(5, settings.stockCount - quantity);
+      setSubmittedOrder(fallbackOrder);
+      onOrderCreated(fallbackOrder, nextStock);
+    } catch {
+      // Offline / Static Host Fallback
+      const nowIso = new Date().toISOString();
+      const randomNum = Math.floor(1000 + Math.random() * 9000);
+      const fallbackOrder: Order = {
+        id: `SHITTU-${randomNum}`,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        productType: selectedType,
+        unitPrice,
+        quantity,
+        totalAmount: total,
+        customerName: customerName.trim(),
+        phone: phone.trim(),
+        email: email.trim(),
+        state,
+        city: city.trim(),
+        address: address.trim(),
+        orderNote: orderNote.trim(),
+        paymentMethod,
+        status: 'Pending',
+        adminNote: '',
+        sheetSynced: false,
+      };
+
+      if (settings.appsScriptUrl) {
+        const syncRes = await postToGoogleAppsScriptDirect(
+          settings.appsScriptUrl,
+          {
+            action: 'upsert_order',
+            order: fallbackOrder,
+          }
+        );
+        fallbackOrder.sheetSynced = syncRes.ok;
+        if (syncRes.ok) {
+          fallbackOrder.sheetSyncedAt = new Date().toISOString();
+        }
+      }
+
+      const nextStock = Math.max(5, settings.stockCount - quantity);
+      setSubmittedOrder(fallbackOrder);
+      onOrderCreated(fallbackOrder, nextStock);
     } finally {
       setIsSubmitting(false);
     }
